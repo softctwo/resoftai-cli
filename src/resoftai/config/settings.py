@@ -44,6 +44,17 @@ class Settings(BaseSettings):
     api_reload: bool = Field(default=False)
     api_enable_websocket: bool = Field(default=True)
 
+    # Database Configuration
+    database_url: str = Field(
+        default="postgresql+asyncpg://postgres:postgres@localhost:5432/resoftai"
+    )
+
+    # JWT Authentication Configuration
+    jwt_secret_key: str = Field(default="your-secret-key-change-in-production-please")
+    jwt_algorithm: str = Field(default="HS256")
+    jwt_access_token_expire_minutes: int = Field(default=30)
+    jwt_refresh_token_expire_days: int = Field(default=7)
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Ensure workspace directory exists
