@@ -22,17 +22,10 @@ from resoftai.llm.base import LLMConfig
 logger = logging.getLogger(__name__)
 
 
-class WorkflowStage(str, Enum):
-    """Workflow execution stages."""
-    INITIALIZATION = "initialization"
-    REQUIREMENT_ANALYSIS = "requirement_analysis"
-    ARCHITECTURE_DESIGN = "architecture_design"
-    UI_DESIGN = "ui_design"
-    DEVELOPMENT = "development"
-    TESTING = "testing"
-    QA_REVIEW = "qa_review"
-    COMPLETED = "completed"
-    FAILED = "failed"
+from resoftai.core.state import WorkflowStage
+
+# Use the existing WorkflowStage from core.state
+# This ensures consistency across the system
 
 
 @dataclass
@@ -72,7 +65,7 @@ class WorkflowOrchestrator:
         self.agents = self._initialize_agents()
 
         # Workflow state
-        self.current_stage = WorkflowStage.INITIALIZATION
+        self.current_stage = WorkflowStage.INITIAL
         self.stage_history: List[WorkflowStage] = []
         self.errors: List[str] = []
 
@@ -86,36 +79,43 @@ class WorkflowOrchestrator:
         """
         agents = {
             AgentRole.PROJECT_MANAGER: ProjectManagerAgent(
+                AgentRole.PROJECT_MANAGER,
                 self.message_bus,
                 self.project_state,
                 self.config.llm_config
             ),
-            AgentRole.REQUIREMENT_ANALYST: RequirementsAnalystAgent(
+            AgentRole.REQUIREMENTS_ANALYST: RequirementsAnalystAgent(
+                AgentRole.REQUIREMENTS_ANALYST,
                 self.message_bus,
                 self.project_state,
                 self.config.llm_config
             ),
             AgentRole.ARCHITECT: ArchitectAgent(
+                AgentRole.ARCHITECT,
                 self.message_bus,
                 self.project_state,
                 self.config.llm_config
             ),
-            AgentRole.UI_DESIGNER: UXUIDesignerAgent(
+            AgentRole.UXUI_DESIGNER: UXUIDesignerAgent(
+                AgentRole.UXUI_DESIGNER,
                 self.message_bus,
                 self.project_state,
                 self.config.llm_config
             ),
             AgentRole.DEVELOPER: DeveloperAgent(
+                AgentRole.DEVELOPER,
                 self.message_bus,
                 self.project_state,
                 self.config.llm_config
             ),
             AgentRole.TEST_ENGINEER: TestEngineerAgent(
+                AgentRole.TEST_ENGINEER,
                 self.message_bus,
                 self.project_state,
                 self.config.llm_config
             ),
-            AgentRole.QA_ENGINEER: QualityExpertAgent(
+            AgentRole.QUALITY_EXPERT: QualityExpertAgent(
+                AgentRole.QUALITY_EXPERT,
                 self.message_bus,
                 self.project_state,
                 self.config.llm_config
@@ -136,7 +136,7 @@ class WorkflowOrchestrator:
         try:
             # Stage 1: Requirement Analysis
             await self._execute_stage(
-                WorkflowStage.REQUIREMENT_ANALYSIS,
+                WorkflowStage.REQUIREMENTS_ANALYSIS,
                 self._run_requirement_analysis
             )
 
@@ -149,13 +149,13 @@ class WorkflowOrchestrator:
             # Stage 3: UI Design (optional)
             if not self.config.skip_ui_design:
                 await self._execute_stage(
-                    WorkflowStage.UI_DESIGN,
+                    WorkflowStage.UI_UX_DESIGN,
                     self._run_ui_design
                 )
 
             # Stage 4: Development
             await self._execute_stage(
-                WorkflowStage.DEVELOPMENT,
+                WorkflowStage.IMPLEMENTATION,
                 self._run_development
             )
 
@@ -167,7 +167,7 @@ class WorkflowOrchestrator:
 
             # Stage 6: QA Review
             await self._execute_stage(
-                WorkflowStage.QA_REVIEW,
+                WorkflowStage.QUALITY_ASSURANCE,
                 self._run_qa_review
             )
 
@@ -206,7 +206,7 @@ class WorkflowOrchestrator:
     async def _run_requirement_analysis(self):
         """Run requirement analysis stage."""
         pm = self.agents[AgentRole.PROJECT_MANAGER]
-        analyst = self.agents[AgentRole.REQUIREMENT_ANALYST]
+        analyst = self.agents[AgentRole.REQUIREMENTS_ANALYST]
 
         # PM initializes project
         await pm.process()
@@ -227,7 +227,7 @@ class WorkflowOrchestrator:
 
     async def _run_ui_design(self):
         """Run UI design stage."""
-        designer = self.agents[AgentRole.UI_DESIGNER]
+        designer = self.agents[AgentRole.UXUI_DESIGNER]
 
         # Designer creates UI/UX designs
         await designer.process()
@@ -279,7 +279,7 @@ class WorkflowOrchestrator:
 
     async def _run_qa_review(self):
         """Run QA review stage."""
-        qa = self.agents[AgentRole.QA_ENGINEER]
+        qa = self.agents[AgentRole.QUALITY_EXPERT]
         developer = self.agents[AgentRole.DEVELOPER]
 
         # QA reviews the project

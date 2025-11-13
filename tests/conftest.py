@@ -76,7 +76,7 @@ async def test_user(db: AsyncSession) -> User:
     user = User(
         username="testuser",
         email="test@example.com",
-        hashed_password="$2b$12$test_hashed_password",
+        password_hash="$2b$12$test_hashed_password",
         full_name="Test User",
         role="user",
         is_active=True
@@ -93,7 +93,7 @@ async def admin_user(db: AsyncSession) -> User:
     user = User(
         username="admin",
         email="admin@example.com",
-        hashed_password="$2b$12$admin_hashed_password",
+        password_hash="$2b$12$admin_hashed_password",
         full_name="Admin User",
         role="admin",
         is_active=True

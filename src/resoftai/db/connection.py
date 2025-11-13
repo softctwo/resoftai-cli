@@ -9,9 +9,13 @@ from resoftai.config import Settings
 
 settings = Settings()
 
-# Database URL
-DATABASE_URL = settings.database_url if hasattr(settings, 'database_url') else \
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/resoftai"
+# Database URL - Use SQLite for development if PostgreSQL is not available
+import os
+if os.environ.get('USE_SQLITE') or not os.system('which psql > /dev/null 2>&1') == 0:
+    DATABASE_URL = "sqlite+aiosqlite:///./resoftai.db"
+else:
+    DATABASE_URL = settings.database_url if hasattr(settings, 'database_url') else \
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/resoftai"
 
 # Create async engine
 engine = create_async_engine(

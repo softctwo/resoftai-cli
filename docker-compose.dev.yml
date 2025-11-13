@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: resoftai-postgres-dev
+    environment:
+      POSTGRES_DB: resoftai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - resoftai-network-dev
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: resoftai-backend-dev
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/resoftai
+      - LLM_PROVIDER=deepseek
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL=deepseek-chat
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=development
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./workspace:/app/workspace
+      - ./tests:/app/tests
+    networks:
+      - resoftai-network-dev
+    command: ["python", "-m", "uvicorn", "src.resoftai.api.main:asgi_app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # Frontend Development Server
+  frontend:
+    image: node:20-alpine
+    container_name: resoftai-frontend-dev
+    working_dir: /app
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api
+      - VITE_SOCKET_URL=http://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - resoftai-network-dev
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: resoftai-redis-dev
+    ports:
+      - "6379:6379"
+    networks:
+      - resoftai-network-dev
+
+volumes:
+  postgres_data_dev:
+    driver: local
+
+networks:
+  resoftai-network-dev:
+    driver: bridge

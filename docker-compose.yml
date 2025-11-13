@@ -21,51 +21,54 @@ services:
     networks:
       - resoftai-network
 
-  # Backend API (Optional - uncomment if you want to run in Docker)
-  # backend:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.backend
-  #   container_name: resoftai-backend
-  #   environment:
-  #     - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/resoftai
-  #     - LLM_PROVIDER=deepseek
-  #     - LLM_API_KEY=${LLM_API_KEY}
-  #     - LLM_MODEL=deepseek-chat
-  #     - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}
-  #     - API_HOST=0.0.0.0
-  #     - API_PORT=8000
-  #   ports:
-  #     - "8000:8000"
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   volumes:
-  #     - ./src:/app/src
-  #     - ./workspace:/app/workspace
-  #   networks:
-  #     - resoftai-network
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: resoftai-backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/resoftai
+      - LLM_PROVIDER=deepseek
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL=deepseek-chat
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - LOG_LEVEL=INFO
+      - ENVIRONMENT=production
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - resoftai_workspace:/app/workspace
+    networks:
+      - resoftai-network
+    restart: unless-stopped
 
-  # Frontend (Optional - uncomment if you want to run in Docker)
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: resoftai-frontend
-  #   environment:
-  #     - VITE_API_BASE_URL=http://localhost:8000/api
-  #     - VITE_SOCKET_URL=http://localhost:8000
-  #   ports:
-  #     - "5173:5173"
-  #   depends_on:
-  #     - backend
-  #   volumes:
-  #     - ./frontend/src:/app/src
-  #   networks:
-  #     - resoftai-network
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: resoftai-frontend
+    environment:
+      - VITE_API_BASE_URL=/api
+      - VITE_SOCKET_URL=/
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - resoftai-network
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+    driver: local
+  resoftai_workspace:
     driver: local
 
 networks:

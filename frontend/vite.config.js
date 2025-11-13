@@ -22,4 +22,12 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      external: ['monaco-editor']
+    }
+  },
+  optimizeDeps: {
+    include: ['monaco-editor']
+  }
 })

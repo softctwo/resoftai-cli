@@ -255,6 +255,101 @@ open http://localhost:8000/docs
 PYTHONPATH=src pytest tests/ -v
 ```
 
+## 🚀 部署指南
+
+### Docker 部署
+
+#### 开发环境
+
+```bash
+# 使用 Docker Compose 启动开发环境
+make dev-docker
+
+# 或直接使用 docker-compose
+docker-compose -f docker-compose.dev.yml up --build
+```
+
+#### 生产环境
+
+```bash
+# 使用部署脚本
+./deploy.sh prod
+
+# 或手动部署
+docker-compose up -d
+```
+
+### Kubernetes 部署
+
+#### 前提条件
+- Kubernetes 集群 (v1.28+)
+- kubectl 配置
+- 容器镜像仓库访问权限
+
+#### 部署步骤
+
+```bash
+# 使用部署脚本
+./deploy-k8s.sh
+
+# 或手动部署
+kubectl apply -f kubernetes/namespace.yaml
+kubectl apply -f kubernetes/secrets.yaml
+kubectl apply -f kubernetes/postgres.yaml
+kubectl apply -f kubernetes/backend.yaml
+kubectl apply -f kubernetes/frontend.yaml
+kubectl apply -f kubernetes/ingress.yaml
+```
+
+### CI/CD 自动化
+
+项目已配置 GitHub Actions CI/CD 流水线：
+
+- **CI 流水线** (`ci.yml`): 代码推送时自动运行
+  - 后端测试 (Python + PostgreSQL)
+  - 前端测试 (Node.js)
+  - 安全扫描 (Bandit + Safety)
+  - 代码质量检查 (Black + Ruff + MyPy)
+  - Docker 镜像构建和推送
+
+- **发布流水线** (`release.yml`): 标签推送时自动运行
+  - 创建 GitHub Release
+  - 发布 Python 包到 PyPI
+  - 部署到生产环境
+
+### 环境配置
+
+#### 开发环境
+```bash
+# 复制开发环境配置
+cp .env.development .env
+
+# 启动开发环境
+make dev-setup
+make dev
+```
+
+#### 生产环境
+```bash
+# 复制生产环境配置
+cp .env.production .env
+
+# 部署到生产环境
+make deploy-prod
+```
+
+### 监控和日志
+
+#### 应用监控
+- 内置性能监控 API (`/api/monitoring/*`)
+- 健康检查端点 (`/health`)
+- 指标收集和重置功能
+
+#### 日志管理
+- 结构化日志记录
+- 多级别日志输出 (DEBUG, INFO, WARNING, ERROR)
+- 容器日志聚合
+
 ## 📖 使用指南
 
 ### 创建用户和LLM配置
@@ -489,11 +584,15 @@ python tests/test_api_integration.py
 - ⏳ 性能优化和负载测试
 - ⏳ 前端代码质量报告显示
 
+### 已完成 ✅
+
+- ✅ **生产环境部署配置** - Docker容器化、Kubernetes部署、CI/CD流水线
+- ✅ **Docker容器化** - 多阶段构建、生产优化配置
+- ✅ **CI/CD流水线** - GitHub Actions自动化测试和部署
+- ✅ **Kubernetes部署** - 完整的K8s manifests和部署脚本
+
 ### 计划中 📋
 
-- 📋 生产环境部署指南
-- 📋 Docker容器化
-- 📋 CI/CD流水线
 - 📋 更多智能体能力
 - 📋 项目模板库
 - 📋 实时协作功能

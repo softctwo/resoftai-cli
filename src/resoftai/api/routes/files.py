@@ -10,6 +10,11 @@ from resoftai.models.user import User
 from resoftai.models.file import File, FileVersion
 from resoftai.crud import file as crud_file
 from resoftai.crud.project import get_project_by_id as get_project
+from resoftai.api.errors import (
+    NotFoundError, PermissionError, ConflictError, FileOperationError,
+    handle_resoftai_error
+)
+from resoftai.monitoring.performance import monitor_request
 
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -93,6 +98,7 @@ class FileListResponse(BaseModel):
 # File endpoints
 
 @router.get("", response_model=FileListResponse)
+@monitor_request
 async def list_files(
     project_id: int = Query(..., description="Project ID"),
     skip: int = Query(0, ge=0),
@@ -104,12 +110,13 @@ async def list_files(
     # Verify user has access to the project
     project = await get_project(db, project_id)
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise handle_resoftai_error(
+            NotFoundError("Project", project_id)
+        )
 
     if project.user_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(
-            status_code=403,
-            detail="Not authorized to access this project"
+        raise handle_resoftai_error(
+            PermissionError("access", f"project {project_id}")
         )
 
     # Get files
@@ -131,6 +138,7 @@ async def list_files(
     )
 
 
+@monitor_request
 @router.get("/{file_id}", response_model=FileResponse)
 async def get_file(
     file_id: int,
@@ -141,14 +149,15 @@ async def get_file(
     file = await crud_file.get_file(db, file_id)
 
     if not file:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise handle_resoftai_error(
+            NotFoundError("File", file_id)
+        )
 
     # Verify user has access
     project = await get_project(db, file.project_id)
     if project.user_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(
-            status_code=403,
-            detail="Not authorized to access this file"
+        raise handle_resoftai_error(
+            PermissionError("access", f"file {file_id}")
         )
 
     return FileResponse.from_orm(file)
@@ -164,12 +173,13 @@ async def create_file(
     # Verify user has access to the project
     project = await get_project(db, file_data.project_id)
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise handle_resoftai_error(
+            NotFoundError("Project", file_data.project_id)
+        )
 
     if project.user_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(
-            status_code=403,
-            detail="Not authorized to modify this project"
+        raise handle_resoftai_error(
+            PermissionError("modify", f"project {file_data.project_id}")
         )
 
     # Check if file already exists
@@ -180,9 +190,8 @@ async def create_file(
     )
 
     if existing:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File already exists at path: {file_data.path}"
+        raise handle_resoftai_error(
+            ConflictError("File", f"path already exists: {file_data.path}")
         )
 
     # Create file
@@ -211,14 +220,15 @@ async def update_file(
     file = await crud_file.get_file(db, file_id)
 
     if not file:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise handle_resoftai_error(
+            NotFoundError("File", file_id)
+        )
 
     # Verify user has access
     project = await get_project(db, file.project_id)
     if project.user_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(
-            status_code=403,
-            detail="Not authorized to modify this file"
+        raise handle_resoftai_error(
+            PermissionError("modify", f"file {file_id}")
         )
 
     # Update file
@@ -244,14 +254,15 @@ async def delete_file(
     file = await crud_file.get_file(db, file_id)
 
     if not file:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise handle_resoftai_error(
+            NotFoundError("File", file_id)
+        )
 
     # Verify user has access
     project = await get_project(db, file.project_id)
     if project.user_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(
-            status_code=403,
-            detail="Not authorized to delete this file"
+        raise handle_resoftai_error(
+            PermissionError("delete", f"file {file_id}")
         )
 
     await crud_file.delete_file(db, file_id)
