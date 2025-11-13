@@ -1,62 +1,43 @@
 #!/usr/bin/env python3
-"""Initialize database with tables and default data."""
+"""
+Database initialization script.
+
+This script creates all database tables from the SQLAlchemy models.
+"""
 import asyncio
 import sys
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Add src directory to path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from resoftai.db import init_db, AsyncSessionLocal
-from resoftai.crud.user import create_user, get_user_by_username
-from resoftai.config import Settings
-
-
-async def create_default_admin():
-    """Create default admin user if not exists."""
-    async with AsyncSessionLocal() as db:
-        # Check if admin exists
-        admin = await get_user_by_username(db, username="admin")
-
-        if not admin:
-            print("Creating default admin user...")
-            admin = await create_user(
-                db=db,
-                username="admin",
-                email="admin@resoftai.com",
-                password="admin123",  # Change this in production!
-                role="admin"
-            )
-            print(f"✓ Created admin user: {admin.username}")
-        else:
-            print(f"✓ Admin user already exists: {admin.username}")
+from resoftai.db.connection import init_db, Base
+from resoftai.models import user, project, agent_activity, task, file, llm_config, log
 
 
 async def main():
-    """Main initialization function."""
-    settings = Settings()
+    """Initialize the database."""
+    print("🔧 Initializing database...")
+    print(f"📁 Database models loaded:")
+    print(f"   - User")
+    print(f"   - Project")
+    print(f"   - AgentActivity")
+    print(f"   - Task")
+    print(f"   - File")
+    print(f"   - LLMConfig")
+    print(f"   - Log")
 
-    print("=" * 60)
-    print("ResoftAI Database Initialization")
-    print("=" * 60)
-
-    print(f"\nDatabase URL: {settings.database_url}")
-
-    print("\n1. Creating database tables...")
-    await init_db()
-    print("✓ Database tables created")
-
-    print("\n2. Creating default admin user...")
-    await create_default_admin()
-
-    print("\n" + "=" * 60)
-    print("Database initialization completed!")
-    print("=" * 60)
-
-    print("\nDefault credentials:")
-    print("  Username: admin")
-    print("  Password: admin123")
-    print("\n⚠️  CHANGE THE DEFAULT PASSWORD IN PRODUCTION!")
+    try:
+        await init_db()
+        print("\n✅ Database initialized successfully!")
+        print(f"📊 Tables created:")
+        for table in Base.metadata.sorted_tables:
+            print(f"   - {table.name}")
+    except Exception as e:
+        print(f"\n❌ Error initializing database: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

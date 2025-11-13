@@ -9,7 +9,7 @@ from resoftai.auth.dependencies import get_current_active_user
 from resoftai.models.user import User
 from resoftai.models.file import File, FileVersion
 from resoftai.crud import file as crud_file
-from resoftai.crud.project import get_project
+from resoftai.crud.project import get_project_by_id as get_project
 
 
 router = APIRouter(prefix="/files", tags=["files"])

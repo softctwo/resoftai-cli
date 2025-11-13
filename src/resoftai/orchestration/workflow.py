@@ -6,16 +6,16 @@ from dataclasses import dataclass
 from enum import Enum
 
 from resoftai.core.message_bus import MessageBus
-from resoftai.core.project_state import ProjectState
+from resoftai.core.state import ProjectState
 from resoftai.core.agent import AgentRole
 from resoftai.agents import (
     ProjectManagerAgent,
-    RequirementAnalystAgent,
+    RequirementsAnalystAgent,
     ArchitectAgent,
-    UIDesignerAgent,
+    UXUIDesignerAgent,
     DeveloperAgent,
     TestEngineerAgent,
-    QAEngineerAgent
+    QualityExpertAgent
 )
 from resoftai.llm.base import LLMConfig
 
@@ -89,7 +89,7 @@ class WorkflowOrchestrator:
                 self.project_state,
                 self.config.llm_config
             ),
-            AgentRole.REQUIREMENT_ANALYST: RequirementAnalystAgent(
+            AgentRole.REQUIREMENT_ANALYST: RequirementsAnalystAgent(
                 self.message_bus,
                 self.project_state,
                 self.config.llm_config
@@ -99,7 +99,7 @@ class WorkflowOrchestrator:
                 self.project_state,
                 self.config.llm_config
             ),
-            AgentRole.UI_DESIGNER: UIDesignerAgent(
+            AgentRole.UI_DESIGNER: UXUIDesignerAgent(
                 self.message_bus,
                 self.project_state,
                 self.config.llm_config
@@ -114,7 +114,7 @@ class WorkflowOrchestrator:
                 self.project_state,
                 self.config.llm_config
             ),
-            AgentRole.QA_ENGINEER: QAEngineerAgent(
+            AgentRole.QA_ENGINEER: QualityExpertAgent(
                 self.message_bus,
                 self.project_state,
                 self.config.llm_config
