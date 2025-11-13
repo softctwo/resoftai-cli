@@ -123,9 +123,11 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
+import { useWebSocket } from '@/composables/useWebSocket'
 
 const authStore = useAuthStore()
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+const { connect, onAgentStatus, onProjectProgress, cleanup } = useWebSocket()
 
 const agents = ref([])
 const projects = ref([])
@@ -147,7 +149,51 @@ const agentRoles = {
 onMounted(async () => {
   await loadProjects()
   await loadAgents()
-  // TODO: Connect to WebSocket for real-time updates
+
+  // Connect to WebSocket for real-time agent updates
+  connect()
+
+  // Listen for agent status updates
+  onAgentStatus((data) => {
+    console.log('Agent status update:', data)
+
+    // Find and update the agent in the list
+    const index = agents.value.findIndex(
+      a => a.project_id === data.project_id && a.agent_role === data.agent_role
+    )
+
+    if (index !== -1) {
+      // Update existing agent
+      agents.value[index] = {
+        ...agents.value[index],
+        status: data.status,
+        current_task: data.current_task,
+        tokens_used: data.tokens_used,
+        progress: data.progress
+      }
+    } else {
+      // Add new agent activity
+      agents.value.push({
+        id: Date.now(),
+        project_id: data.project_id,
+        agent_role: data.agent_role,
+        status: data.status,
+        current_task: data.current_task,
+        tokens_used: data.tokens_used,
+        progress: data.progress || 0,
+        started_at: new Date().toISOString()
+      })
+    }
+  })
+
+  // Listen for project progress updates
+  onProjectProgress((data) => {
+    console.log('Project progress update:', data)
+  })
+})
+
+onUnmounted(() => {
+  cleanup()
 })
 
 async function loadProjects() {

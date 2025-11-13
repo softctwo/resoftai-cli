@@ -51,14 +51,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
+import { useWebSocket } from '@/composables/useWebSocket'
 
 const route = useRoute()
 const authStore = useAuthStore()
+const { connect, joinProject, leaveProject, onProjectProgress, onAgentStatus, onTaskUpdate, cleanup } = useWebSocket()
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
@@ -75,6 +77,40 @@ const project = ref({
 
 onMounted(async () => {
   await loadProject()
+
+  // Connect to WebSocket and join project room
+  connect()
+  joinProject(route.params.id)
+
+  // Listen for real-time project updates
+  onProjectProgress((data) => {
+    if (data.project_id === parseInt(route.params.id)) {
+      project.value.progress = data.percentage
+      project.value.current_stage = data.stage
+      ElMessage({
+        message: data.message,
+        type: 'info',
+        duration: 2000
+      })
+    }
+  })
+
+  onAgentStatus((data) => {
+    if (data.project_id === parseInt(route.params.id)) {
+      console.log('Agent status update:', data)
+    }
+  })
+
+  onTaskUpdate((data) => {
+    if (data.project_id === parseInt(route.params.id)) {
+      console.log('Task update:', data)
+    }
+  })
+})
+
+onUnmounted(() => {
+  leaveProject(route.params.id)
+  cleanup()
 })
 
 async function loadProject() {
