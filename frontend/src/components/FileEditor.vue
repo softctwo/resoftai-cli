@@ -38,10 +38,61 @@
           <el-option label="高对比度" value="hc-black" />
         </el-select>
 
+        <el-button
+          size="small"
+          @click="checkQuality"
+          :loading="checking"
+          :icon="MagicStick"
+        >
+          质量检查
+        </el-button>
+
+        <div v-if="qualityScore !== null" class="quality-badge">
+          <el-tag :type="getQualityType(qualityScore)" size="small">
+            质量: {{ qualityScore }}/100
+          </el-tag>
+        </div>
+
         <div class="editor-info">
           <span>{{ currentFile?.path || '未选择文件' }}</span>
         </div>
       </div>
+
+      <!-- Quality Issues Alert -->
+      <el-alert
+        v-if="qualityIssues.length > 0"
+        type="warning"
+        :closable="false"
+        style="margin-bottom: 10px"
+      >
+        <template #title>
+          发现 {{ qualityIssues.length }} 个代码质量问题
+          <el-link type="primary" @click="showQualityPanel = !showQualityPanel" style="margin-left: 10px">
+            {{ showQualityPanel ? '隐藏详情' : '查看详情' }}
+          </el-link>
+        </template>
+      </el-alert>
+
+      <!-- Quality Issues Panel -->
+      <el-collapse-transition>
+        <div v-show="showQualityPanel && qualityIssues.length > 0" class="quality-panel">
+          <div
+            v-for="(issue, index) in qualityIssues.slice(0, 5)"
+            :key="index"
+            class="quality-issue"
+            @click="goToLine(issue.line)"
+          >
+            <el-tag :type="getIssueType(issue.level)" size="small">
+              {{ issue.level }}
+            </el-tag>
+            <span class="issue-line">第 {{ issue.line }} 行:</span>
+            <span class="issue-message">{{ issue.message }}</span>
+          </div>
+          <div v-if="qualityIssues.length > 5" class="more-issues">
+            还有 {{ qualityIssues.length - 5 }} 个问题...
+          </div>
+        </div>
+      </el-collapse-transition>
 
       <MonacoEditor
         v-model="editorContent"
@@ -69,6 +120,8 @@
 
 <script setup>
 import { ref, computed, watch, defineProps, defineEmits } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { MagicStick } from '@element-plus/icons-vue'
 import MonacoEditor from './MonacoEditor.vue'
 
 const props = defineProps({
@@ -97,7 +150,11 @@ const editorContent = ref('')
 const currentLanguage = ref('javascript')
 const currentTheme = ref('vs-dark')
 const saving = ref(false)
+const checking = ref(false)
 const hasChanges = ref(false)
+const qualityScore = ref(null)
+const qualityIssues = ref([])
+const showQualityPanel = ref(false)
 
 const currentFile = computed(() => props.file)
 
@@ -196,6 +253,84 @@ async function handleSave() {
     saving.value = false
   }
 }
+
+async function checkQuality() {
+  checking.value = true
+
+  try {
+    // TODO: Implement actual API call
+    // For now, simulate with mock data
+    await new Promise(resolve => setTimeout(resolve, 1500))
+
+    // Simulate quality check results
+    const mockIssues = []
+
+    // Check for common issues
+    const lines = editorContent.value.split('\n')
+    lines.forEach((line, index) => {
+      if (line.length > 120) {
+        mockIssues.push({
+          level: 'warning',
+          line: index + 1,
+          message: '行长度超过120个字符',
+          suggestion: '将长行拆分为多行'
+        })
+      }
+      if (line.includes('password') || line.includes('secret')) {
+        mockIssues.push({
+          level: 'critical',
+          line: index + 1,
+          message: '可能包含硬编码的敏感信息',
+          suggestion: '使用环境变量或配置文件'
+        })
+      }
+      if (currentLanguage.value === 'javascript' && line.includes('var ')) {
+        mockIssues.push({
+          level: 'warning',
+          line: index + 1,
+          message: '使用var声明变量已过时',
+          suggestion: '使用let或const代替'
+        })
+      }
+    })
+
+    qualityIssues.value = mockIssues
+    qualityScore.value = Math.max(40, 100 - mockIssues.length * 5)
+
+    if (mockIssues.length === 0) {
+      ElMessage.success('代码质量检查完成，未发现问题！')
+    } else {
+      ElMessage.warning(`发现 ${mockIssues.length} 个代码质量问题`)
+      showQualityPanel.value = true
+    }
+
+  } catch (error) {
+    ElMessage.error('质量检查失败: ' + error.message)
+  } finally {
+    checking.value = false
+  }
+}
+
+function getQualityType(score) {
+  if (score >= 90) return 'success'
+  if (score >= 70) return 'warning'
+  return 'danger'
+}
+
+function getIssueType(level) {
+  const types = {
+    critical: 'danger',
+    error: 'warning',
+    warning: 'info',
+    info: ''
+  }
+  return types[level] || ''
+}
+
+function goToLine(lineNumber) {
+  // TODO: Implement monaco editor goToLine functionality
+  ElMessage.info(`跳转到第 ${lineNumber} 行`)
+}
 </script>
 
 <style scoped>
@@ -215,6 +350,10 @@ async function handleSave() {
   border-radius: 4px;
 }
 
+.quality-badge {
+  margin-left: 10px;
+}
+
 .editor-info {
   flex: 1;
   text-align: right;
@@ -227,5 +366,50 @@ async function handleSave() {
   border: 1px solid #dcdfe6;
   border-radius: 4px;
   overflow: hidden;
+}
+
+.quality-panel {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 10px;
+  background: #fff8e6;
+  border: 1px solid #ffe58f;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.quality-issue {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  margin-bottom: 6px;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.quality-issue:hover {
+  background: #f5f7fa;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.issue-line {
+  font-weight: 600;
+  color: #409eff;
+  min-width: 60px;
+}
+
+.issue-message {
+  flex: 1;
+  color: #606266;
+}
+
+.more-issues {
+  text-align: center;
+  color: #909399;
+  font-size: 13px;
+  padding: 8px;
 }
 </style>
