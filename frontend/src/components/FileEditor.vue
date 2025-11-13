@@ -55,8 +55,21 @@
 
         <div class="editor-info">
           <span>{{ currentFile?.path || '未选择文件' }}</span>
+          <el-divider direction="vertical" />
+          <el-tag v-if="isInSession" type="success" size="small">
+            <el-icon><Connection /></el-icon>
+            协作模式
+          </el-tag>
         </div>
       </div>
+
+      <!-- Active Users Panel -->
+      <ActiveUsers
+        v-if="activeUsers.length > 0"
+        :users="activeUsers"
+        :current-user-id="currentUserId"
+        style="margin-bottom: 10px"
+      />
 
       <!-- Quality Issues Alert -->
       <el-alert
@@ -100,7 +113,9 @@
         :theme="currentTheme"
         :readonly="readonly"
         :options="editorOptions"
+        :remote-cursors="remoteCursors"
         @change="handleContentChange"
+        @cursor-change="handleCursorChange"
       />
     </div>
 
@@ -119,10 +134,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, defineProps, defineEmits } from 'vue'
+import { ref, computed, watch, defineProps, defineEmits, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { MagicStick } from '@element-plus/icons-vue'
+import { MagicStick, Connection } from '@element-plus/icons-vue'
 import MonacoEditor from './MonacoEditor.vue'
+import ActiveUsers from './ActiveUsers.vue'
+import { useCollaborativeEditing } from '../composables/useCollaborativeEditing'
 
 const props = defineProps({
   modelValue: {
@@ -136,10 +153,44 @@ const props = defineProps({
   readonly: {
     type: Boolean,
     default: false
+  },
+  projectId: {
+    type: Number,
+    default: null
+  },
+  userId: {
+    type: Number,
+    default: null
+  },
+  username: {
+    type: String,
+    default: 'Anonymous'
   }
 })
 
 const emit = defineEmits(['update:modelValue', 'save'])
+
+// Collaborative editing setup
+const currentUserId = computed(() => props.userId)
+const {
+  activeUsers,
+  remoteCursors,
+  isInSession,
+  joinFileSession,
+  leaveFileSession,
+  sendFileEdit,
+  sendCursorPosition,
+  handleRemoteEdit
+} = useCollaborativeEditing(
+  computed(() => props.file?.id),
+  computed(() => props.projectId),
+  currentUserId,
+  computed(() => props.username)
+)
+
+// Track content change timer for sending edits
+let editDebounceTimer = null
+let cursorDebounceTimer = null
 
 const visible = computed({
   get: () => props.modelValue,
@@ -180,8 +231,22 @@ watch(() => props.file, (newFile) => {
     editorContent.value = newFile.content || ''
     currentLanguage.value = newFile.language || detectLanguage(newFile.path)
     hasChanges.value = false
+
+    // Join collaborative session when file is opened
+    if (props.projectId && props.userId && newFile.id) {
+      setTimeout(() => {
+        joinFileSession()
+      }, 500)
+    }
   }
 }, { immediate: true })
+
+// Cleanup on component unmount
+onUnmounted(() => {
+  leaveFileSession()
+  clearTimeout(editDebounceTimer)
+  clearTimeout(cursorDebounceTimer)
+})
 
 function detectLanguage(path) {
   if (!path) return 'javascript'
@@ -210,8 +275,27 @@ function detectLanguage(path) {
   return languageMap[ext] || 'plaintext'
 }
 
-function handleContentChange(content) {
+function handleContentChange(content, changes) {
   hasChanges.value = content !== (props.file?.content || '')
+
+  // Send collaborative edit if in session
+  if (isInSession.value && changes) {
+    // Debounce to avoid too many messages
+    clearTimeout(editDebounceTimer)
+    editDebounceTimer = setTimeout(() => {
+      sendFileEdit(changes)
+    }, 300)
+  }
+}
+
+// Handle cursor position changes
+function handleCursorChange(position, selection) {
+  if (isInSession.value) {
+    clearTimeout(cursorDebounceTimer)
+    cursorDebounceTimer = setTimeout(() => {
+      sendCursorPosition(position, selection)
+    }, 500)
+  }
 }
 
 function handleClose() {
