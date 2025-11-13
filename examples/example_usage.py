@@ -49,10 +49,24 @@ async def main():
     # 3. Initialize agents
     print("Initializing AI agents...")
 
+    from resoftai.core.agent import AgentRole
+
     agents = [
-        ProjectManagerAgent(message_bus=message_bus, project_state=project_state),
-        RequirementsAnalystAgent(message_bus=message_bus, project_state=project_state),
-        ArchitectAgent(message_bus=message_bus, project_state=project_state),
+        ProjectManagerAgent(
+            role=AgentRole.PROJECT_MANAGER,
+            message_bus=message_bus,
+            project_state=project_state
+        ),
+        RequirementsAnalystAgent(
+            role=AgentRole.REQUIREMENTS_ANALYST,
+            message_bus=message_bus,
+            project_state=project_state
+        ),
+        ArchitectAgent(
+            role=AgentRole.ARCHITECT,
+            message_bus=message_bus,
+            project_state=project_state
+        ),
     ]
 
     for agent in agents:

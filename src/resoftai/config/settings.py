@@ -5,38 +5,34 @@ Settings and configuration management using environment variables.
 import os
 from pathlib import Path
 from typing import Optional
-from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # Anthropic API Configuration
-    anthropic_api_key: str = Field(..., env="ANTHROPIC_API_KEY")
-    claude_model: str = Field(
-        default="claude-3-5-sonnet-20241022",
-        env="CLAUDE_MODEL"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore"
     )
-    claude_max_tokens: int = Field(default=8192, env="CLAUDE_MAX_TOKENS")
-    claude_temperature: float = Field(default=0.7, env="CLAUDE_TEMPERATURE")
+
+    # Anthropic API Configuration
+    anthropic_api_key: str = Field(default="your_api_key_here")
+    claude_model: str = Field(default="claude-3-5-sonnet-20241022")
+    claude_max_tokens: int = Field(default=8192)
+    claude_temperature: float = Field(default=0.7)
 
     # Platform Configuration
-    workspace_dir: Path = Field(
-        default=Path("/tmp/resoftai-workspace"),
-        env="RESOFTAI_WORKSPACE"
-    )
-    log_level: str = Field(default="INFO", env="RESOFTAI_LOG_LEVEL")
+    workspace_dir: Path = Field(default=Path("/tmp/resoftai-workspace"))
+    log_level: str = Field(default="INFO")
 
     # API Server Configuration
-    api_host: str = Field(default="0.0.0.0", env="API_HOST")
-    api_port: int = Field(default=8000, env="API_PORT")
-    api_reload: bool = Field(default=False, env="API_RELOAD")
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    api_host: str = Field(default="0.0.0.0")
+    api_port: int = Field(default=8000)
+    api_reload: bool = Field(default=False)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
