@@ -1,0 +1,35 @@
+{
+  "name": "resoftai-frontend",
+  "version": "0.2.0",
+  "description": "ResoftAI Multi-Agent Platform Frontend",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "axios": "^1.6.2",
+    "dayjs": "^1.11.10",
+    "echarts": "^5.4.3",
+    "element-plus": "^2.5.0",
+    "highlight.js": "^11.9.0",
+    "markdown-it": "^14.0.0",
+    "monaco-editor": "^0.54.0",
+    "pinia": "^2.1.7",
+    "socket.io-client": "^4.8.1",
+    "vue": "^3.4.0",
+    "vue-echarts": "^6.6.5",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "@vue/eslint-config-prettier": "^9.0.0",
+    "eslint": "^8.55.0",
+    "eslint-plugin-vue": "^9.19.2",
+    "prettier": "^3.1.1",
+    "sass": "^1.69.5",
+    "vite": "^5.0.0"
+  }
+}
