@@ -18,7 +18,7 @@ class Log(Base):
     level: Mapped[str] = mapped_column(String(20), nullable=False)  # debug, info, warning, error
     message: Mapped[str] = mapped_column(Text, nullable=False)
     source: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # Agent role or system component
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    extra_data: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)  # Renamed from 'metadata' to avoid SQLAlchemy conflict
 
     # Timestamp
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
