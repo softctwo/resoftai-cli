@@ -10,7 +10,13 @@ from resoftai.config import Settings
 settings = Settings()
 
 # Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Using bcrypt with truncate_error=False to avoid issues with bcrypt wrap bug detection
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__truncate_error=False,
+    bcrypt__default_rounds=12
+)
 
 
 class Token(BaseModel):
@@ -50,6 +56,9 @@ def get_password_hash(password: str) -> str:
     Returns:
         Hashed password
     """
+    # Bcrypt has a 72 byte limit, truncate if necessary
+    if len(password.encode('utf-8')) > 72:
+        password = password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
     return pwd_context.hash(password)
 
 
