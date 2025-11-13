@@ -64,7 +64,7 @@ class LLMConfigResponse(BaseModel):
     @classmethod
     def from_orm(cls, config: LLMConfigModel):
         # Mask API key (show first 6 and last 4 characters)
-        api_key = config.api_key
+        api_key = config.api_key_encrypted
         if len(api_key) > 10:
             masked_key = f"{api_key[:6]}...{api_key[-4:]}"
         else:
@@ -77,11 +77,11 @@ class LLMConfigResponse(BaseModel):
             provider=config.provider,
             model_name=config.model_name,
             api_key_masked=masked_key,
-            api_base=config.api_base,
-            max_tokens=config.max_tokens,
-            temperature=config.temperature,
-            top_p=config.top_p,
-            is_active=config.is_active,
+            api_base=None,  # Not in database model
+            max_tokens=config.max_tokens or 8192,
+            temperature=config.temperature or 0.7,
+            top_p=0.95,  # Not in database model, use default
+            is_active=config.is_default,
             created_at=config.created_at.isoformat()
         )
 

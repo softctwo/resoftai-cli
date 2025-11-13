@@ -163,7 +163,7 @@ async def activate_config(
     await deactivate_all_configs(db, config.user_id)
 
     # Activate this config
-    config.is_active = True
+    config.is_default = True
 
     await db.flush()
     await db.refresh(config)
@@ -181,7 +181,7 @@ async def deactivate_all_configs(
     await db.execute(
         update(LLMConfigModel)
         .where(LLMConfigModel.user_id == user_id)
-        .values(is_active=False)
+        .values(is_default=False)
     )
 
     await db.flush()

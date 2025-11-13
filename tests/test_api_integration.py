@@ -129,7 +129,7 @@ class APITester:
                 json=payload
             )
 
-            if response.status_code != 200:
+            if response.status_code not in [200, 201]:
                 print(f"❌ LLM config creation failed: HTTP {response.status_code}")
                 print(f"   Response: {response.text}")
                 return False
@@ -153,7 +153,12 @@ class APITester:
                 f"{self.base_url}/api/llm-configs/{self.llm_config_id}/activate",
                 headers=headers
             )
-            assert response.status_code == 200
+
+            if response.status_code != 200:
+                print(f"❌ LLM config activation failed: HTTP {response.status_code}")
+                print(f"   Response: {response.text}")
+                return False
+
             data = response.json()
             print(f"✅ LLM config activated")
             return True
@@ -201,10 +206,20 @@ class APITester:
                 f"{self.base_url}/api/projects",
                 headers=headers
             )
-            assert response.status_code == 200
+
+            if response.status_code != 200:
+                print(f"❌ Get projects failed: HTTP {response.status_code}")
+                print(f"   Response: {response.text}")
+                return False
+
             data = response.json()
-            assert "items" in data
-            print(f"✅ Got {len(data['items'])} project(s)")
+            # API returns 'projects' key, not 'items'
+            if "projects" not in data:
+                print(f"❌ Get projects failed: 'projects' not in response")
+                print(f"   Response keys: {data.keys()}")
+                return False
+
+            print(f"✅ Got {len(data['projects'])} project(s) (Total: {data['total']})")
             return True
         except Exception as e:
             print(f"❌ Get projects failed: {e}")
