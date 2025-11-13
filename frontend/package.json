@@ -16,6 +16,7 @@
     "element-plus": "^2.5.0",
     "highlight.js": "^11.9.0",
     "markdown-it": "^14.0.0",
+    "monaco-editor": "^0.54.0",
     "pinia": "^2.1.7",
     "socket.io-client": "^4.8.1",
     "vue": "^3.4.0",
