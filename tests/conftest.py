@@ -8,6 +8,11 @@ from sqlalchemy.pool import NullPool
 from resoftai.db.connection import Base
 from resoftai.models.user import User
 from resoftai.models.project import Project
+from resoftai.models.file import File, FileVersion
+from resoftai.models.task import Task
+from resoftai.models.log import Log
+from resoftai.models.agent_activity import AgentActivity
+from resoftai.models.llm_config import LLMConfigModel
 from resoftai.config import Settings
 
 
@@ -76,8 +81,7 @@ async def test_user(db: AsyncSession) -> User:
     user = User(
         username="testuser",
         email="test@example.com",
-        hashed_password="$2b$12$test_hashed_password",
-        full_name="Test User",
+        password_hash="$2b$12$test_hashed_password",
         role="user",
         is_active=True
     )
@@ -93,8 +97,7 @@ async def admin_user(db: AsyncSession) -> User:
     user = User(
         username="admin",
         email="admin@example.com",
-        hashed_password="$2b$12$admin_hashed_password",
-        full_name="Admin User",
+        password_hash="$2b$12$admin_hashed_password",
         role="admin",
         is_active=True
     )
