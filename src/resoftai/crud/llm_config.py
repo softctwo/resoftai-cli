@@ -52,8 +52,9 @@ async def create_llm_config(
     db: AsyncSession,
     user_id: int,
     provider: str,
-    model: str,
+    model_name: str,
     api_key: str,
+    name: Optional[str] = None,
     api_base: Optional[str] = None,
     max_tokens: int = 8192,
     temperature: float = 0.7,
@@ -67,14 +68,13 @@ async def create_llm_config(
 
     config = LLMConfigModel(
         user_id=user_id,
+        name=name,
         provider=provider,
-        model=model,
-        api_key=api_key,
-        api_base=api_base,
+        model_name=model_name,
+        api_key_encrypted=api_key,  # TODO: Should encrypt this
         max_tokens=max_tokens,
         temperature=temperature,
-        top_p=top_p,
-        is_active=is_active
+        is_default=is_active
     )
 
     db.add(config)

@@ -10,12 +10,12 @@ from resoftai.config import Settings
 settings = Settings()
 
 # Password hashing context
-# Using bcrypt with truncate_error=False to avoid issues with bcrypt wrap bug detection
+# Using argon2id - modern, secure password hashing algorithm
+# Argon2id is the winner of the Password Hashing Competition (2015)
+# and is recommended by OWASP for password storage
 pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__truncate_error=False,
-    bcrypt__default_rounds=12
+    schemes=["argon2"],  # Using argon2 only - more secure and no 72-byte limitation
+    deprecated="auto"
 )
 
 
@@ -48,17 +48,17 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     """
-    Hash a password using bcrypt.
+    Hash a password using argon2id.
+
+    Argon2id is a memory-hard password hashing algorithm that is
+    resistant to both side-channel attacks and GPU cracking attacks.
 
     Args:
         password: Plain text password
 
     Returns:
-        Hashed password
+        Hashed password using argon2id
     """
-    # Bcrypt has a 72 byte limit, truncate if necessary
-    if len(password.encode('utf-8')) > 72:
-        password = password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
     return pwd_context.hash(password)
 
 

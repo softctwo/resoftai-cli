@@ -20,8 +20,9 @@ router = APIRouter(prefix="/llm-configs", tags=["llm-configs"])
 
 class LLMConfigCreate(BaseModel):
     """Schema for creating LLM config."""
+    name: Optional[str] = None
     provider: str
-    model: str
+    model_name: str
     api_key: str
     api_base: Optional[str] = None
     max_tokens: int = 8192
@@ -32,7 +33,8 @@ class LLMConfigCreate(BaseModel):
 
 class LLMConfigUpdate(BaseModel):
     """Schema for updating LLM config."""
-    model: Optional[str] = None
+    name: Optional[str] = None
+    model_name: Optional[str] = None
     api_key: Optional[str] = None
     api_base: Optional[str] = None
     max_tokens: Optional[int] = None
@@ -45,8 +47,9 @@ class LLMConfigResponse(BaseModel):
     """Schema for LLM config response (masks API key)."""
     id: int
     user_id: int
+    name: Optional[str]
     provider: str
-    model: str
+    model_name: str
     api_key_masked: str
     api_base: Optional[str]
     max_tokens: int
@@ -70,8 +73,9 @@ class LLMConfigResponse(BaseModel):
         return cls(
             id=config.id,
             user_id=config.user_id,
+            name=config.name,
             provider=config.provider,
-            model=config.model,
+            model_name=config.model_name,
             api_key_masked=masked_key,
             api_base=config.api_base,
             max_tokens=config.max_tokens,
@@ -185,8 +189,9 @@ async def create_llm_config(
     config = await crud.create_llm_config(
         db,
         user_id=current_user.id,
+        name=config_data.name,
         provider=config_data.provider,
-        model=config_data.model,
+        model_name=config_data.model_name,
         api_key=config_data.api_key,
         api_base=config_data.api_base,
         max_tokens=config_data.max_tokens,
@@ -322,7 +327,7 @@ async def test_llm_connection(
         llm_config = LLMConfig(
             provider=ModelProvider(config.provider),
             api_key=config.api_key,
-            model_name=config.model,
+            model_name=config.model_name,
             api_base=config.api_base,
             max_tokens=min(config.max_tokens, 100),  # Limit tokens for test
             temperature=config.temperature,
