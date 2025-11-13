@@ -128,7 +128,12 @@ class APITester:
                 headers=headers,
                 json=payload
             )
-            assert response.status_code == 200
+
+            if response.status_code != 200:
+                print(f"❌ LLM config creation failed: HTTP {response.status_code}")
+                print(f"   Response: {response.text}")
+                return False
+
             data = response.json()
             self.llm_config_id = data["id"]
             print(f"✅ LLM config created (ID: {self.llm_config_id})")
@@ -137,8 +142,6 @@ class APITester:
             return True
         except Exception as e:
             print(f"❌ LLM config creation failed: {e}")
-            if hasattr(e, 'response'):
-                print(f"   Response: {e.response.text}")
             return False
 
     def test_activate_llm_config(self) -> bool:
@@ -173,7 +176,12 @@ class APITester:
                 headers=headers,
                 json=payload
             )
-            assert response.status_code == 200
+
+            if response.status_code not in [200, 201]:
+                print(f"❌ Project creation failed: HTTP {response.status_code}")
+                print(f"   Response: {response.text}")
+                return False
+
             data = response.json()
             self.project_id = data["id"]
             print(f"✅ Project created (ID: {self.project_id})")
@@ -182,8 +190,6 @@ class APITester:
             return True
         except Exception as e:
             print(f"❌ Project creation failed: {e}")
-            if hasattr(e, 'response'):
-                print(f"   Response: {e.response.text}")
             return False
 
     def test_get_projects(self) -> bool:
