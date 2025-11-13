@@ -5,13 +5,14 @@ Base Agent class for all AI agents in the platform.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, AsyncIterator
 import logging
-from anthropic import Anthropic
 
 from resoftai.core.message_bus import Message, MessageBus, MessageType
 from resoftai.core.state import ProjectState, WorkflowStage
 from resoftai.config.settings import get_settings
+from resoftai.llm.factory import LLMFactory
+from resoftai.llm.base import LLMConfig
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,7 @@ class Agent(ABC):
         role: AgentRole,
         message_bus: MessageBus,
         project_state: ProjectState,
+        llm_config: Optional[LLMConfig] = None,
     ):
         """
         Initialize an agent.
@@ -62,17 +64,25 @@ class Agent(ABC):
             role: The role of this agent
             message_bus: Message bus for communication
             project_state: Shared project state
+            llm_config: Optional LLM configuration (uses default if not provided)
         """
         self.role = role
         self.message_bus = message_bus
         self.project_state = project_state
         self.settings = get_settings()
-        self.client = Anthropic(api_key=self.settings.anthropic_api_key)
+
+        # Initialize LLM provider using factory pattern
+        config = llm_config or self.settings.get_llm_config()
+        self.llm = LLMFactory.create(config)
+
+        # Statistics tracking
+        self.total_tokens = 0
+        self.requests_count = 0
 
         # Subscribe to relevant messages
         self._setup_subscriptions()
 
-        logger.info(f"Initialized {self.role.value} agent")
+        logger.info(f"Initialized {self.role.value} agent with {config.provider.value} provider")
 
     @property
     @abstractmethod
@@ -187,6 +197,83 @@ class Agent(ABC):
         """
         logger.info(f"{self.name} starting work on stage: {stage.value}")
 
+    async def generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        stream: bool = False,
+        **kwargs
+    ) -> str:
+        """
+        Generate AI response using configured LLM provider.
+
+        Args:
+            prompt: The user prompt
+            system_prompt: Optional system prompt (uses agent's default if not provided)
+            stream: Whether to use streaming (not supported in this method, use generate_stream)
+            **kwargs: Additional arguments passed to LLM provider
+
+        Returns:
+            The AI response text
+        """
+        if stream:
+            raise ValueError("For streaming responses, use generate_stream() method")
+
+        try:
+            response = await self.llm.generate(
+                prompt=prompt,
+                system_prompt=system_prompt or self.system_prompt,
+                **kwargs
+            )
+
+            # Update statistics
+            self.total_tokens += response.total_tokens
+            self.requests_count += 1
+
+            logger.debug(
+                f"{self.name} generated response: {response.total_tokens} tokens "
+                f"(total: {self.total_tokens}, requests: {self.requests_count})"
+            )
+
+            return response.content
+
+        except Exception as e:
+            logger.error(f"Error calling LLM API in {self.name}: {e}", exc_info=True)
+            raise
+
+    async def generate_stream(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        **kwargs
+    ) -> AsyncIterator[str]:
+        """
+        Generate streaming AI response using configured LLM provider.
+
+        Args:
+            prompt: The user prompt
+            system_prompt: Optional system prompt (uses agent's default if not provided)
+            **kwargs: Additional arguments passed to LLM provider
+
+        Yields:
+            Response chunks as they are generated
+        """
+        try:
+            async for chunk in self.llm.generate_stream(
+                prompt=prompt,
+                system_prompt=system_prompt or self.system_prompt,
+                **kwargs
+            ):
+                yield chunk
+
+            # Note: Token counting for streaming is more complex
+            self.requests_count += 1
+
+        except Exception as e:
+            logger.error(f"Error in streaming LLM call in {self.name}: {e}", exc_info=True)
+            raise
+
+    # Backward compatibility method
     async def call_claude(
         self,
         prompt: str,
@@ -195,39 +282,34 @@ class Agent(ABC):
         temperature: Optional[float] = None,
     ) -> str:
         """
-        Call Claude API to get AI response.
+        Legacy method for backward compatibility.
+        Calls the new generate() method internally.
 
         Args:
             prompt: The user prompt
-            system_prompt: Optional system prompt (uses agent's default if not provided)
+            system_prompt: Optional system prompt
             max_tokens: Maximum tokens to generate
             temperature: Sampling temperature
 
         Returns:
             The AI response text
         """
-        try:
-            response = self.client.messages.create(
-                model=self.settings.claude_model,
-                max_tokens=max_tokens or self.settings.claude_max_tokens,
-                temperature=temperature or self.settings.claude_temperature,
-                system=system_prompt or self.system_prompt,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
+        logger.warning(
+            f"{self.name} using deprecated call_claude() method. "
+            "Please use generate() instead."
+        )
 
-            # Extract text from response
-            text_content = ""
-            for block in response.content:
-                if block.type == "text":
-                    text_content += block.text
+        kwargs = {}
+        if max_tokens is not None:
+            kwargs["max_tokens"] = max_tokens
+        if temperature is not None:
+            kwargs["temperature"] = temperature
 
-            return text_content
-
-        except Exception as e:
-            logger.error(f"Error calling Claude API: {e}", exc_info=True)
-            raise
+        return await self.generate(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            **kwargs
+        )
 
     async def send_message(
         self,
