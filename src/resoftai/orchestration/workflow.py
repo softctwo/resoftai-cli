@@ -63,8 +63,9 @@ class WorkflowOrchestrator:
         self.config = config
         self.message_bus = MessageBus()
         self.project_state = ProjectState(
-            project_id=config.project_id,
-            requirements=config.requirements
+            name=f"Project {config.project_id}",
+            description=config.requirements,
+            requirements={"raw_text": config.requirements}
         )
 
         # Initialize agents

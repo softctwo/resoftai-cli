@@ -55,7 +55,7 @@ class ProjectExecutor:
         )
 
         # Create workflow config
-        output_dir = Path(settings.resoftai_workspace) / f"project_{project.id}"
+        output_dir = Path(settings.workspace_dir) / f"project_{project.id}"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         self.workflow_config = WorkflowConfig(
