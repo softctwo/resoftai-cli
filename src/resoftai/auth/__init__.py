@@ -8,12 +8,14 @@ from resoftai.auth.security import (
     Token,
     TokenData,
 )
-from resoftai.auth.dependencies import (
-    get_current_user,
-    get_current_active_user,
-    require_admin,
-    get_optional_user,
-)
+
+# Import dependencies separately to avoid circular imports
+# from resoftai.auth.dependencies import (
+#     get_current_user,
+#     get_current_active_user,
+#     require_admin,
+#     get_optional_user,
+# )
 
 __all__ = [
     "verify_password",
@@ -23,8 +25,8 @@ __all__ = [
     "verify_token",
     "Token",
     "TokenData",
-    "get_current_user",
-    "get_current_active_user",
-    "require_admin",
-    "get_optional_user",
+    # "get_current_user",
+    # "get_current_active_user",
+    # "require_admin",
+    # "get_optional_user",
 ]

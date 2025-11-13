@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from resoftai.db import get_db
 from resoftai.auth.dependencies import get_current_active_user
 from resoftai.models.user import User
-from resoftai.crud.project import get_project
+from resoftai.crud.project import get_project_by_id as get_project
 from resoftai.orchestration.executor import ProjectExecutor
 
 router = APIRouter(prefix="/execution", tags=["execution"])

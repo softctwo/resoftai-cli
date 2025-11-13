@@ -68,3 +68,6 @@ package-lock.json
 .pnpm-debug.log*
 dist/
 *.local
+*.db
+coverage.xml
+htmlcov/

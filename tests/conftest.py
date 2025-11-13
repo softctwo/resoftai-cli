@@ -5,7 +5,7 @@ from typing import Generator, AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
-from resoftai.db.base import Base
+from resoftai.db.connection import Base
 from resoftai.models.user import User
 from resoftai.models.project import Project
 from resoftai.config import Settings
