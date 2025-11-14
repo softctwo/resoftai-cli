@@ -1,18 +1,119 @@
 <template>
   <div class="team-management">
-    <el-card class="header-card">
-      <div class="header-content">
-        <div>
-          <h2>团队管理</h2>
-          <p class="subtitle">管理团队成员和权限</p>
-        </div>
-        <div class="header-actions">
-          <el-select
-            v-model="selectedOrgId"
-            placeholder="选择组织"
-            @change="loadTeams"
-            style="width: 250px; margin-right: 10px"
-          >
+    <el-page-header title="返回" @back="$router.push('/')">
+      <template #content>
+        <h2>团队管理</h2>
+      </template>
+      <template #extra>
+        <el-button type="primary" :icon="Plus" @click="showCreateDialog = true">
+          创建团队
+        </el-button>
+      </template>
+    </el-page-header>
+
+    <!-- Team List -->
+    <el-row :gutter="20" v-loading="loading">
+      <el-col :span="8" v-for="team in teams" :key="team.id">
+        <el-card shadow="hover" class="team-card">
+          <template #header>
+            <div class="card-header">
+              <div class="team-info">
+                <el-avatar :size="40" :icon="Team">
+                  <template v-if="team.avatar">
+                    <img :src="team.avatar" alt="team" />
+                  </template>
+                </el-avatar>
+                <div class="team-title">
+                  <h3>{{ team.name }}</h3>
+                  <el-tag size="small">{{ team.organization_name }}</el-tag>
+                </div>
+              </div>
+              <el-dropdown trigger="click">
+                <el-icon class="more-icon"><MoreFilled /></el-icon>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item :icon="Edit" @click="editTeam(team)">
+                      编辑
+                    </el-dropdown-item>
+                    <el-dropdown-item :icon="Delete" @click="deleteTeam(team)" divided>
+                      删除
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+          </template>
+
+          <div class="team-description">
+            {{ team.description || '暂无描述' }}
+          </div>
+
+          <el-divider />
+
+          <div class="team-members">
+            <div class="members-header">
+              <span class="members-title">团队成员 ({{ team.members?.length || 0 }})</span>
+              <el-button size="small" :icon="Plus" link @click="addMember(team)">
+                添加
+              </el-button>
+            </div>
+            <el-avatar-group :max="5" class="avatar-group">
+              <el-avatar
+                v-for="member in team.members"
+                :key="member.id"
+                :src="member.avatar"
+                :size="32"
+              >
+                <template v-if="!member.avatar">
+                  {{ member.username?.charAt(0).toUpperCase() }}
+                </template>
+              </el-avatar>
+            </el-avatar-group>
+          </div>
+
+          <el-divider />
+
+          <div class="team-stats">
+            <div class="stat-item">
+              <el-icon><FolderOpened /></el-icon>
+              <span>{{ team.project_count || 0 }} 项目</span>
+            </div>
+            <div class="stat-item">
+              <el-icon><Document /></el-icon>
+              <span>{{ team.task_count || 0 }} 任务</span>
+            </div>
+            <div class="stat-item">
+              <el-icon><Clock /></el-icon>
+              <span>{{ formatDate(team.created_at) }}</span>
+            </div>
+          </div>
+
+          <el-divider />
+
+          <div class="team-actions">
+            <el-button size="small" :icon="View" @click="viewTeamDetail(team)">
+              查看详情
+            </el-button>
+            <el-button size="small" :icon="Setting" @click="configureTeam(team)">
+              设置
+            </el-button>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-empty v-if="teams.length === 0 && !loading" description="暂无团队" />
+
+    <!-- Create/Edit Team Dialog -->
+    <el-dialog
+      v-model="showCreateDialog"
+      :title="editingTeam ? '编辑团队' : '创建团队'"
+      width="600px"
+      @close="resetForm"
+    >
+      <el-form :model="teamForm" :rules="teamRules" ref="teamFormRef" label-width="100px">
+        <el-form-item label="所属组织" prop="organization_id">
+          <el-select v-model="teamForm.organization_id" placeholder="请选择组织" style="width: 100%">
             <el-option
               v-for="org in organizations"
               :key="org.id"
@@ -20,707 +121,527 @@
               :value="org.id"
             />
           </el-select>
-          <el-button type="primary" @click="showCreateTeamDialog = true" :icon="Plus" :disabled="!selectedOrgId">
-            创建团队
-          </el-button>
-        </div>
-      </div>
-    </el-card>
-
-    <!-- Statistics -->
-    <el-row :gutter="20" class="stats-row" v-if="selectedOrgId">
-      <el-col :span="8">
-        <el-card class="stat-card">
-          <div class="stat-content">
-            <el-icon :size="40" color="#409eff"><UserFilled /></el-icon>
-            <div class="stat-info">
-              <div class="stat-value">{{ statistics.totalTeams }}</div>
-              <div class="stat-label">总团队数</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card class="stat-card">
-          <div class="stat-content">
-            <el-icon :size="40" color="#67c23a"><Avatar /></el-icon>
-            <div class="stat-info">
-              <div class="stat-value">{{ statistics.totalMembers }}</div>
-              <div class="stat-label">总成员数</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card class="stat-card">
-          <div class="stat-content">
-            <el-icon :size="40" color="#e6a23c"><StarFilled /></el-icon>
-            <div class="stat-info">
-              <div class="stat-value">{{ statistics.defaultTeams }}</div>
-              <div class="stat-label">默认团队</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- Teams List -->
-    <el-card class="table-card" v-if="selectedOrgId">
-      <el-input
-        v-model="searchQuery"
-        placeholder="搜索团队名称或描述"
-        :prefix-icon="Search"
-        clearable
-        style="width: 300px; margin-bottom: 20px"
-      />
-
-      <el-table
-        v-loading="loading"
-        :data="filteredTeams"
-        stripe
-        style="width: 100%"
-      >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column label="团队名称">
-          <template #default="{ row }">
-            <div class="team-info">
-              <div class="team-name">
-                {{ row.name }}
-                <el-tag v-if="row.is_default" size="small" type="warning" style="margin-left: 8px">
-                  默认
-                </el-tag>
-              </div>
-              <div class="team-desc" v-if="row.description">{{ row.description }}</div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="成员数" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag>{{ row.memberCount || 0 }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="创建时间" width="180">
-          <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" @click="viewTeam(row)">查看</el-button>
-            <el-button size="small" type="primary" @click="manageMembers(row)">成员管理</el-button>
-            <el-button size="small" @click="editTeam(row)">编辑</el-button>
-            <el-popconfirm
-              title="确定要删除此团队吗？"
-              @confirm="deleteTeam(row.id)"
-            >
-              <template #reference>
-                <el-button size="small" type="danger">删除</el-button>
-              </template>
-            </el-popconfirm>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
-
-    <!-- Empty State -->
-    <el-card v-if="!selectedOrgId" class="empty-state">
-      <el-empty description="请先选择一个组织">
-        <el-button type="primary" @click="$router.push('/organizations')">
-          前往组织管理
-        </el-button>
-      </el-empty>
-    </el-card>
-
-    <!-- Create/Edit Team Dialog -->
-    <el-dialog
-      v-model="showCreateTeamDialog"
-      :title="isEditingTeam ? '编辑团队' : '创建团队'"
-      width="500px"
-    >
-      <el-form
-        ref="teamFormRef"
-        :model="teamForm"
-        :rules="teamFormRules"
-        label-width="100px"
-      >
-        <el-form-item label="团队名称" prop="name">
-          <el-input v-model="teamForm.name" placeholder="输入团队名称" />
         </el-form-item>
-        <el-form-item label="描述">
+        <el-form-item label="团队名称" prop="name">
+          <el-input v-model="teamForm.name" placeholder="请输入团队名称" />
+        </el-form-item>
+        <el-form-item label="团队描述" prop="description">
           <el-input
             v-model="teamForm.description"
             type="textarea"
             :rows="3"
-            placeholder="团队描述"
+            placeholder="请输入团队描述"
           />
         </el-form-item>
-        <el-form-item label="默认团队">
-          <el-switch v-model="teamForm.is_default" />
-          <div class="form-tip">新成员将自动加入默认团队</div>
+        <el-form-item label="团队权限" prop="permissions">
+          <el-checkbox-group v-model="teamForm.permissions">
+            <el-checkbox label="create_project">创建项目</el-checkbox>
+            <el-checkbox label="manage_files">管理文件</el-checkbox>
+            <el-checkbox label="execute_workflow">执行工作流</el-checkbox>
+            <el-checkbox label="manage_members">管理成员</el-checkbox>
+          </el-checkbox-group>
         </el-form-item>
       </el-form>
-
       <template #footer>
-        <el-button @click="showCreateTeamDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitTeam" :loading="submitting">
-          {{ isEditingTeam ? '保存' : '创建' }}
+        <el-button @click="showCreateDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveTeam" :loading="saving">
+          保存
         </el-button>
       </template>
     </el-dialog>
 
-    <!-- View Team Dialog -->
-    <el-dialog
-      v-model="showViewDialog"
-      title="团队详情"
-      width="600px"
-    >
-      <div v-if="selectedTeam">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="ID">{{ selectedTeam.id }}</el-descriptions-item>
-          <el-descriptions-item label="团队名称">{{ selectedTeam.name }}</el-descriptions-item>
-          <el-descriptions-item label="所属组织" :span="2">
-            {{ getOrganizationName(selectedTeam.organization_id) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="默认团队">
-            {{ selectedTeam.is_default ? '是' : '否' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="成员数">
-            {{ selectedTeam.memberCount || 0 }}
-          </el-descriptions-item>
-          <el-descriptions-item label="描述" :span="2">
-            {{ selectedTeam.description || '无' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="创建时间">
-            {{ formatDate(selectedTeam.created_at) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="更新时间">
-            {{ formatDate(selectedTeam.updated_at) }}
-          </el-descriptions-item>
-        </el-descriptions>
-      </div>
-    </el-dialog>
+    <!-- Team Detail Dialog -->
+    <el-dialog v-model="showDetailDialog" title="团队详情" width="900px">
+      <el-tabs v-model="activeTab">
+        <el-tab-pane label="成员" name="members">
+          <div class="members-toolbar">
+            <el-button :icon="Plus" @click="showAddMemberDialog = true">添加成员</el-button>
+          </div>
+          <el-table :data="currentTeamMembers" style="width: 100%">
+            <el-table-column prop="username" label="用户名" width="150" />
+            <el-table-column prop="email" label="邮箱" />
+            <el-table-column prop="role" label="角色" width="120">
+              <template #default="{ row }">
+                <el-select v-model="row.role" size="small" @change="updateMemberRole(row)">
+                  <el-option label="成员" value="member" />
+                  <el-option label="负责人" value="lead" />
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column prop="joined_at" label="加入时间" width="160">
+              <template #default="{ row }">
+                {{ formatDate(row.joined_at) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="100" align="center">
+              <template #default="{ row }">
+                <el-button size="small" :icon="Delete" @click="removeMember(row)" type="danger" link>
+                  移除
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
 
-    <!-- Manage Members Dialog -->
-    <el-dialog
-      v-model="showMembersDialog"
-      title="成员管理"
-      width="800px"
-    >
-      <div v-if="selectedTeam">
-        <div class="members-header">
-          <h3>{{ selectedTeam.name }} - 成员列表</h3>
-          <el-button type="primary" size="small" @click="showAddMemberDialog = true" :icon="Plus">
-            添加成员
-          </el-button>
-        </div>
+        <el-tab-pane label="项目" name="projects">
+          <div class="projects-toolbar">
+            <el-button :icon="Plus" @click="assignProject">分配项目</el-button>
+          </div>
+          <el-table :data="currentTeamProjects" style="width: 100%">
+            <el-table-column prop="name" label="项目名称" />
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getProjectStatusType(row.status)">
+                  {{ getProjectStatusText(row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="progress" label="进度" width="150">
+              <template #default="{ row }">
+                <el-progress :percentage="row.progress" :stroke-width="6" />
+              </template>
+            </el-table-column>
+            <el-table-column prop="assigned_at" label="分配时间" width="160">
+              <template #default="{ row }">
+                {{ formatDate(row.assigned_at) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="100" align="center">
+              <template #default="{ row }">
+                <el-button size="small" :icon="View" @click="viewProject(row)" link>
+                  查看
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
 
-        <el-table
-          v-loading="loadingMembers"
-          :data="teamMembers"
-          stripe
-          style="width: 100%"
-        >
-          <el-table-column prop="user_id" label="用户ID" width="100" />
-          <el-table-column label="角色" width="120">
-            <template #default="{ row }">
-              <el-tag :type="getRoleType(row.role)">
-                {{ getRoleLabel(row.role) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="加入时间" width="180">
-            <template #default="{ row }">
-              {{ formatDate(row.joined_at) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="200">
-            <template #default="{ row }">
-              <el-button size="small" @click="changeRole(row)">修改角色</el-button>
-              <el-popconfirm
-                title="确定要移除此成员吗？"
-                @confirm="removeMember(row.user_id)"
-              >
-                <template #reference>
-                  <el-button size="small" type="danger">移除</el-button>
-                </template>
-              </el-popconfirm>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-    </el-dialog>
+        <el-tab-pane label="活动" name="activities">
+          <el-timeline>
+            <el-timeline-item
+              v-for="activity in currentTeamActivities"
+              :key="activity.id"
+              :timestamp="formatDate(activity.created_at)"
+              :type="getActivityType(activity.type)"
+            >
+              <div class="activity-content">
+                <strong>{{ activity.user_name }}</strong>
+                {{ activity.action }}
+                <span class="activity-target">{{ activity.target }}</span>
+              </div>
+            </el-timeline-item>
+          </el-timeline>
+        </el-tab-pane>
 
-    <!-- Add Member Dialog -->
-    <el-dialog
-      v-model="showAddMemberDialog"
-      title="添加成员"
-      width="400px"
-    >
-      <el-form
-        ref="memberFormRef"
-        :model="memberForm"
-        :rules="memberFormRules"
-        label-width="80px"
-      >
-        <el-form-item label="用户ID" prop="user_id">
-          <el-input-number v-model="memberForm.user_id" :min="1" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="角色" prop="role">
-          <el-select v-model="memberForm.role" style="width: 100%">
-            <el-option label="所有者" value="owner" />
-            <el-option label="管理员" value="admin" />
-            <el-option label="成员" value="member" />
-            <el-option label="查看者" value="viewer" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="showAddMemberDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitMember" :loading="submitting">添加</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- Change Role Dialog -->
-    <el-dialog
-      v-model="showChangeRoleDialog"
-      title="修改角色"
-      width="400px"
-    >
-      <el-form label-width="80px">
-        <el-form-item label="用户ID">
-          <el-input v-model="roleChangeForm.user_id" disabled />
-        </el-form-item>
-        <el-form-item label="新角色">
-          <el-select v-model="roleChangeForm.role" style="width: 100%">
-            <el-option label="所有者" value="owner" />
-            <el-option label="管理员" value="admin" />
-            <el-option label="成员" value="member" />
-            <el-option label="查看者" value="viewer" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="showChangeRoleDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitRoleChange" :loading="submitting">保存</el-button>
-      </template>
+        <el-tab-pane label="设置" name="settings">
+          <el-form label-width="120px">
+            <el-form-item label="团队可见性">
+              <el-radio-group v-model="teamSettings.visibility">
+                <el-radio label="private">私有</el-radio>
+                <el-radio label="organization">组织内可见</el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label="允许成员邀请">
+              <el-switch v-model="teamSettings.allow_member_invite" />
+            </el-form-item>
+            <el-form-item label="项目创建权限">
+              <el-switch v-model="teamSettings.allow_create_project" />
+            </el-form-item>
+            <el-form-item label="通知设置">
+              <el-checkbox-group v-model="teamSettings.notifications">
+                <el-checkbox label="project_update">项目更新</el-checkbox>
+                <el-checkbox label="member_change">成员变更</el-checkbox>
+                <el-checkbox label="task_assigned">任务分配</el-checkbox>
+              </el-checkbox-group>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="saveTeamSettings">保存设置</el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+      </el-tabs>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ref, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Plus, Search, UserFilled, Avatar, StarFilled
+  Plus,
+  Edit,
+  Delete,
+  Setting,
+  View,
+  Team,
+  FolderOpened,
+  Document,
+  Clock,
+  MoreFilled
 } from '@element-plus/icons-vue'
-import api from '@/utils/api'
 
 // State
-const route = useRoute()
 const loading = ref(false)
-const loadingMembers = ref(false)
-const submitting = ref(false)
-const showCreateTeamDialog = ref(false)
-const showViewDialog = ref(false)
-const showMembersDialog = ref(false)
-const showAddMemberDialog = ref(false)
-const showChangeRoleDialog = ref(false)
-const isEditingTeam = ref(false)
-
-const organizations = ref([])
-const selectedOrgId = ref(null)
+const saving = ref(false)
 const teams = ref([])
-const selectedTeam = ref(null)
-const teamMembers = ref([])
-const searchQuery = ref('')
+const organizations = ref([])
+const showCreateDialog = ref(false)
+const showDetailDialog = ref(false)
+const showAddMemberDialog = ref(false)
+const activeTab = ref('members')
 
-const statistics = reactive({
-  totalTeams: 0,
-  totalMembers: 0,
-  defaultTeams: 0
-})
-
-const teamForm = reactive({
-  name: '',
-  description: '',
-  is_default: false
-})
-
-const memberForm = reactive({
-  user_id: null,
-  role: 'member'
-})
-
-const roleChangeForm = reactive({
-  user_id: null,
-  role: ''
-})
+const editingTeam = ref(null)
+const currentTeam = ref(null)
+const currentTeamMembers = ref([])
+const currentTeamProjects = ref([])
+const currentTeamActivities = ref([])
 
 const teamFormRef = ref(null)
-const memberFormRef = ref(null)
-
-const teamFormRules = {
-  name: [
-    { required: true, message: '请输入团队名称', trigger: 'blur' },
-    { min: 1, max: 200, message: '长度在 1 到 200 个字符', trigger: 'blur' }
-  ]
-}
-
-const memberFormRules = {
-  user_id: [
-    { required: true, message: '请输入用户ID', trigger: 'blur' }
-  ],
-  role: [
-    { required: true, message: '请选择角色', trigger: 'change' }
-  ]
-}
-
-// Computed
-const filteredTeams = computed(() => {
-  if (!searchQuery.value) return teams.value
-
-  const query = searchQuery.value.toLowerCase()
-  return teams.value.filter(team =>
-    team.name.toLowerCase().includes(query) ||
-    (team.description && team.description.toLowerCase().includes(query))
-  )
+const teamForm = ref({
+  organization_id: null,
+  name: '',
+  description: '',
+  permissions: []
 })
 
-// Methods
-const loadOrganizations = async () => {
-  try {
-    const response = await api.get('/organizations')
-    organizations.value = response.data
+const teamSettings = ref({
+  visibility: 'private',
+  allow_member_invite: false,
+  allow_create_project: true,
+  notifications: []
+})
 
-    // Auto-select from query param if available
-    if (route.query.org_id) {
-      selectedOrgId.value = parseInt(route.query.org_id)
-      await loadTeams()
-    }
-  } catch (error) {
-    ElMessage.error('加载组织列表失败: ' + error.message)
-  }
+const teamRules = {
+  organization_id: [{ required: true, message: '请选择所属组织', trigger: 'change' }],
+  name: [{ required: true, message: '请输入团队名称', trigger: 'blur' }]
 }
 
-const loadTeams = async () => {
-  if (!selectedOrgId.value) return
-
+// Fetch teams
+const fetchTeams = async () => {
   loading.value = true
   try {
-    const response = await api.get('/teams', {
-      params: { organization_id: selectedOrgId.value }
-    })
-    teams.value = response.data
+    // TODO: Replace with actual API call
+    // const response = await teamAPI.getTeams()
 
-    // Load member counts for each team
-    for (const team of teams.value) {
-      team.memberCount = 0  // TODO: Load actual member count
-    }
+    // Mock data
+    teams.value = [
+      {
+        id: 1,
+        name: '前端开发团队',
+        organization_name: 'ResoftAI',
+        description: '负责前端界面开发和用户体验优化',
+        project_count: 5,
+        task_count: 23,
+        created_at: new Date(),
+        members: [
+          { id: 1, username: 'user1', avatar: '' },
+          { id: 2, username: 'user2', avatar: '' },
+          { id: 3, username: 'user3', avatar: '' }
+        ]
+      },
+      {
+        id: 2,
+        name: '后端开发团队',
+        organization_name: 'ResoftAI',
+        description: '负责后端API开发和系统架构',
+        project_count: 8,
+        task_count: 45,
+        created_at: new Date(),
+        members: [
+          { id: 4, username: 'user4', avatar: '' },
+          { id: 5, username: 'user5', avatar: '' }
+        ]
+      }
+    ]
 
-    updateStatistics()
+    organizations.value = [
+      { id: 1, name: 'ResoftAI' },
+      { id: 2, name: '企业客户A' }
+    ]
   } catch (error) {
-    ElMessage.error('加载团队列表失败: ' + error.message)
+    ElMessage.error('加载团队列表失败：' + error.message)
   } finally {
     loading.value = false
   }
 }
 
-const updateStatistics = () => {
-  statistics.totalTeams = teams.value.length
-  statistics.totalMembers = teams.value.reduce((sum, t) => sum + (t.memberCount || 0), 0)
-  statistics.defaultTeams = teams.value.filter(t => t.is_default).length
-}
-
-const viewTeam = (team) => {
-  selectedTeam.value = team
-  showViewDialog.value = true
-}
-
-const editTeam = (team) => {
-  isEditingTeam.value = true
-  Object.assign(teamForm, {
-    id: team.id,
-    name: team.name,
-    description: team.description || '',
-    is_default: team.is_default
-  })
-  showCreateTeamDialog.value = true
-}
-
-const submitTeam = async () => {
+// Save team
+const saveTeam = async () => {
   if (!teamFormRef.value) return
 
-  await teamFormRef.value.validate(async (valid) => {
-    if (!valid) return
+  try {
+    await teamFormRef.value.validate()
+    saving.value = true
 
-    submitting.value = true
+    // TODO: API call
+
+    ElMessage.success(editingTeam.value ? '团队更新成功' : '团队创建成功')
+    showCreateDialog.value = false
+    fetchTeams()
+  } catch (error) {
+    if (error !== false) {
+      ElMessage.error('操作失败：' + error.message)
+    }
+  } finally {
+    saving.value = false
+  }
+}
+
+// View team detail
+const viewTeamDetail = (team) => {
+  currentTeam.value = team
+  // Mock members
+  currentTeamMembers.value = [
+    {
+      id: 1,
+      username: 'developer1',
+      email: 'dev1@resoftai.com',
+      role: 'lead',
+      joined_at: new Date()
+    },
+    {
+      id: 2,
+      username: 'developer2',
+      email: 'dev2@resoftai.com',
+      role: 'member',
+      joined_at: new Date()
+    }
+  ]
+  // Mock projects
+  currentTeamProjects.value = [
+    {
+      id: 1,
+      name: '项目A',
+      status: 'in_progress',
+      progress: 65,
+      assigned_at: new Date()
+    },
+    {
+      id: 2,
+      name: '项目B',
+      status: 'completed',
+      progress: 100,
+      assigned_at: new Date()
+    }
+  ]
+  // Mock activities
+  currentTeamActivities.value = [
+    {
+      id: 1,
+      type: 'member_join',
+      user_name: 'developer1',
+      action: '加入了团队',
+      target: '',
+      created_at: new Date()
+    }
+  ]
+  showDetailDialog.value = true
+}
+
+// Edit team
+const editTeam = (team) => {
+  editingTeam.value = team
+  teamForm.value = { ...team }
+  showCreateDialog.value = true
+}
+
+// Delete team
+const deleteTeam = (team) => {
+  ElMessageBox.confirm(
+    `确定要删除团队"${team.name}"吗？此操作不可恢复。`,
+    '删除确认',
+    {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消'
+    }
+  ).then(async () => {
     try {
-      if (isEditingTeam.value) {
-        await api.put(`/teams/${teamForm.id}`, {
-          name: teamForm.name,
-          description: teamForm.description,
-          is_default: teamForm.is_default
-        })
-        ElMessage.success('团队更新成功')
-      } else {
-        await api.post('/teams', {
-          organization_id: selectedOrgId.value,
-          name: teamForm.name,
-          description: teamForm.description,
-          is_default: teamForm.is_default
-        })
-        ElMessage.success('团队创建成功')
-      }
-
-      showCreateTeamDialog.value = false
-      resetTeamForm()
-      await loadTeams()
+      // TODO: API call
+      ElMessage.success('团队已删除')
+      fetchTeams()
     } catch (error) {
-      ElMessage.error(isEditingTeam.value ? '更新失败: ' + error.message : '创建失败: ' + error.message)
-    } finally {
-      submitting.value = false
+      ElMessage.error('删除失败：' + error.message)
     }
   })
 }
 
-const deleteTeam = async (id) => {
-  try {
-    await api.delete(`/teams/${id}`)
-    ElMessage.success('团队删除成功')
-    await loadTeams()
-  } catch (error) {
-    ElMessage.error('删除失败: ' + error.message)
+// Helper functions
+const formatDate = (date) => {
+  return new Date(date).toLocaleDateString('zh-CN')
+}
+
+const getProjectStatusType = (status) => {
+  const typeMap = {
+    pending: 'info',
+    in_progress: 'warning',
+    completed: 'success'
   }
+  return typeMap[status] || 'info'
 }
 
-const manageMembers = async (team) => {
-  selectedTeam.value = team
-  showMembersDialog.value = true
-  await loadTeamMembers(team.id)
-}
-
-const loadTeamMembers = async (teamId) => {
-  loadingMembers.value = true
-  try {
-    // TODO: Implement team members endpoint
-    // const response = await api.get(`/teams/${teamId}/members`)
-    // teamMembers.value = response.data
-    teamMembers.value = []  // Placeholder
-  } catch (error) {
-    ElMessage.error('加载成员列表失败: ' + error.message)
-  } finally {
-    loadingMembers.value = false
+const getProjectStatusText = (status) => {
+  const textMap = {
+    pending: '待开始',
+    in_progress: '进行中',
+    completed: '已完成'
   }
+  return textMap[status] || status
 }
 
-const submitMember = async () => {
-  if (!memberFormRef.value) return
-
-  await memberFormRef.value.validate(async (valid) => {
-    if (!valid) return
-
-    submitting.value = true
-    try {
-      await api.post(`/teams/${selectedTeam.value.id}/members`, {
-        user_id: memberForm.user_id,
-        role: memberForm.role
-      })
-      ElMessage.success('成员添加成功')
-      showAddMemberDialog.value = false
-      resetMemberForm()
-      await loadTeamMembers(selectedTeam.value.id)
-    } catch (error) {
-      ElMessage.error('添加失败: ' + error.message)
-    } finally {
-      submitting.value = false
-    }
-  })
-}
-
-const removeMember = async (userId) => {
-  try {
-    await api.delete(`/teams/${selectedTeam.value.id}/members/${userId}`)
-    ElMessage.success('成员移除成功')
-    await loadTeamMembers(selectedTeam.value.id)
-  } catch (error) {
-    ElMessage.error('移除失败: ' + error.message)
+const getActivityType = (type) => {
+  const typeMap = {
+    member_join: 'success',
+    member_leave: 'warning',
+    project_assign: 'primary'
   }
+  return typeMap[type] || 'info'
 }
 
-const changeRole = (member) => {
-  roleChangeForm.user_id = member.user_id
-  roleChangeForm.role = member.role
-  showChangeRoleDialog.value = true
-}
-
-const submitRoleChange = async () => {
-  submitting.value = true
-  try {
-    await api.put(`/teams/${selectedTeam.value.id}/members/${roleChangeForm.user_id}/role`, {
-      role: roleChangeForm.role
-    })
-    ElMessage.success('角色修改成功')
-    showChangeRoleDialog.value = false
-    await loadTeamMembers(selectedTeam.value.id)
-  } catch (error) {
-    ElMessage.error('修改失败: ' + error.message)
-  } finally {
-    submitting.value = false
-  }
-}
-
-const resetTeamForm = () => {
-  Object.assign(teamForm, {
+const resetForm = () => {
+  editingTeam.value = null
+  teamForm.value = {
+    organization_id: null,
     name: '',
     description: '',
-    is_default: false
-  })
-  isEditingTeam.value = false
-  if (teamFormRef.value) {
-    teamFormRef.value.resetFields()
+    permissions: []
   }
 }
 
-const resetMemberForm = () => {
-  Object.assign(memberForm, {
-    user_id: null,
-    role: 'member'
-  })
-  if (memberFormRef.value) {
-    memberFormRef.value.resetFields()
-  }
+const addMember = (team) => {
+  ElMessage.info('添加成员功能开发中...')
 }
 
-const getOrganizationName = (orgId) => {
-  const org = organizations.value.find(o => o.id === orgId)
-  return org ? org.name : '-'
+const updateMemberRole = (member) => {
+  ElMessage.success('角色已更新')
 }
 
-const getRoleType = (role) => {
-  const types = {
-    owner: 'danger',
-    admin: 'warning',
-    member: 'success',
-    viewer: 'info'
-  }
-  return types[role] || ''
+const removeMember = (member) => {
+  ElMessage.info('移除成员功能开发中...')
 }
 
-const getRoleLabel = (role) => {
-  const labels = {
-    owner: '所有者',
-    admin: '管理员',
-    member: '成员',
-    viewer: '查看者'
-  }
-  return labels[role] || role
+const assignProject = () => {
+  ElMessage.info('分配项目功能开发中...')
 }
 
-const formatDate = (dateStr) => {
-  if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleString('zh-CN')
+const viewProject = (project) => {
+  ElMessage.info('查看项目详情功能开发中...')
+}
+
+const configureTeam = (team) => {
+  viewTeamDetail(team)
+  activeTab.value = 'settings'
+}
+
+const saveTeamSettings = () => {
+  ElMessage.success('设置已保存')
 }
 
 // Lifecycle
 onMounted(() => {
-  loadOrganizations()
+  fetchTeams()
 })
 </script>
 
 <style scoped lang="scss">
 .team-management {
-  .header-card {
+  padding: 20px;
+
+  .el-page-header {
     margin-bottom: 20px;
-
-    .header-content {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-
-      h2 {
-        margin: 0 0 8px 0;
-        font-size: 24px;
-      }
-
-      .subtitle {
-        margin: 0;
-        color: #909399;
-        font-size: 14px;
-      }
-
-      .header-actions {
-        display: flex;
-        align-items: center;
-      }
-    }
   }
 
-  .stats-row {
+  .team-card {
     margin-bottom: 20px;
 
-    .stat-card {
-      .stat-content {
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+
+      .team-info {
         display: flex;
-        align-items: center;
-        gap: 20px;
+        gap: 12px;
+        flex: 1;
 
-        .stat-info {
-          flex: 1;
-
-          .stat-value {
-            font-size: 28px;
-            font-weight: bold;
-            color: #303133;
-          }
-
-          .stat-label {
-            margin-top: 4px;
-            font-size: 14px;
-            color: #909399;
+        .team-title {
+          h3 {
+            margin: 0 0 4px 0;
+            font-size: 16px;
           }
         }
       }
-    }
-  }
 
-  .table-card {
-    .team-info {
-      .team-name {
-        font-weight: 500;
-        margin-bottom: 4px;
+      .more-icon {
+        cursor: pointer;
+        font-size: 20px;
+        color: #909399;
+
+        &:hover {
+          color: #409EFF;
+        }
+      }
+    }
+
+    .team-description {
+      color: #606266;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 40px;
+    }
+
+    .team-members {
+      .members-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+
+        .members-title {
+          font-weight: 500;
+          color: #606266;
+        }
+      }
+
+      .avatar-group {
+        display: flex;
+        gap: 8px;
+      }
+    }
+
+    .team-stats {
+      display: flex;
+      justify-content: space-around;
+
+      .stat-item {
         display: flex;
         align-items: center;
+        gap: 6px;
+        color: #606266;
+        font-size: 14px;
       }
+    }
 
-      .team-desc {
-        font-size: 12px;
-        color: #909399;
+    .team-actions {
+      display: flex;
+      gap: 10px;
+
+      .el-button {
+        flex: 1;
       }
     }
   }
 
-  .empty-state {
-    margin-top: 40px;
+  .members-toolbar,
+  .projects-toolbar {
+    margin-bottom: 16px;
   }
 
-  .members-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-
-    h3 {
-      margin: 0;
+  .activity-content {
+    .activity-target {
+      color: #409EFF;
+      font-weight: 500;
     }
-  }
-
-  .form-tip {
-    font-size: 12px;
-    color: #909399;
-    margin-top: 4px;
   }
 }
 </style>

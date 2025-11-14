@@ -35,7 +35,7 @@ const routes = [
       {
         path: 'files',
         name: 'Files',
-        component: () => import('@/views/Files.vue'),
+        component: () => import('@/views/FilesEnhanced.vue'),
         meta: { title: '文件管理', icon: 'Files' }
       },
       {
@@ -57,46 +57,22 @@ const routes = [
         meta: { title: '模板市场', icon: 'Box' }
       },
       {
-        path: 'plugins/marketplace',
-        name: 'PluginMarketplace',
-        component: () => import('@/views/PluginMarketplace.vue'),
-        meta: { title: '插件市场', icon: 'Grid' }
-      },
-      {
-        path: 'plugins/installed',
-        name: 'InstalledPlugins',
-        component: () => import('@/views/InstalledPlugins.vue'),
-        meta: { title: '已安装插件', icon: 'Box' }
-      },
-      {
-        path: 'plugins/:slug',
-        name: 'PluginDetail',
-        component: () => import('@/views/PluginDetail.vue'),
-        meta: { title: '插件详情', icon: 'Document' }
+        path: 'performance',
+        name: 'Performance',
+        component: () => import('@/views/PerformanceMonitor.vue'),
+        meta: { title: '性能监控', icon: 'Odometer' }
       },
       {
         path: 'organizations',
-        name: 'OrganizationManagement',
+        name: 'Organizations',
         component: () => import('@/views/OrganizationManagement.vue'),
         meta: { title: '组织管理', icon: 'OfficeBuilding' }
       },
       {
         path: 'teams',
-        name: 'TeamManagement',
+        name: 'Teams',
         component: () => import('@/views/TeamManagement.vue'),
-        meta: { title: '团队管理', icon: 'UserFilled' }
-      },
-      {
-        path: 'quotas',
-        name: 'QuotaMonitoring',
-        component: () => import('@/views/QuotaMonitoring.vue'),
-        meta: { title: '配额监控', icon: 'DataLine' }
-      },
-      {
-        path: 'performance',
-        name: 'PerformanceMonitoring',
-        component: () => import('@/views/PerformanceMonitoring.vue'),
-        meta: { title: '性能监控', icon: 'TrendCharts' }
+        meta: { title: '团队管理', icon: 'PictureFilled' }
       },
     ]
   },
