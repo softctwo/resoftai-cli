@@ -1,0 +1,622 @@
+/**
+ * ResoftAI Mobile Responsive Styles
+ *
+ * This file contains responsive breakpoints and mixins for mobile optimization.
+ * Import this file in components that need responsive behavior.
+ */
+
+// Breakpoints
+$breakpoint-xs: 480px;    // Extra small devices (phones)
+$breakpoint-sm: 768px;    // Small devices (tablets)
+$breakpoint-md: 992px;    // Medium devices (small laptops)
+$breakpoint-lg: 1200px;   // Large devices (desktops)
+$breakpoint-xl: 1600px;   // Extra large devices (large desktops)
+
+// Mixins for media queries
+@mixin mobile {
+  @media (max-width: #{$breakpoint-sm - 1px}) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (min-width: #{$breakpoint-sm}) and (max-width: #{$breakpoint-md - 1px}) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @media (min-width: #{$breakpoint-md}) {
+    @content;
+  }
+}
+
+@mixin large-desktop {
+  @media (min-width: #{$breakpoint-lg}) {
+    @content;
+  }
+}
+
+// Mobile-first approach mixins
+@mixin from-mobile {
+  @media (min-width: #{$breakpoint-xs}) {
+    @content;
+  }
+}
+
+@mixin from-tablet {
+  @media (min-width: #{$breakpoint-sm}) {
+    @content;
+  }
+}
+
+@mixin from-desktop {
+  @media (min-width: #{$breakpoint-md}) {
+    @content;
+  }
+}
+
+// Utility classes
+.mobile-only {
+  @include desktop {
+    display: none !important;
+  }
+}
+
+.desktop-only {
+  @include mobile {
+    display: none !important;
+  }
+}
+
+.tablet-only {
+  @include mobile {
+    display: none !important;
+  }
+  @include desktop {
+    display: none !important;
+  }
+}
+
+// Responsive container
+.responsive-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 16px;
+
+  @include from-tablet {
+    padding: 0 24px;
+  }
+
+  @include from-desktop {
+    padding: 0 32px;
+  }
+}
+
+// Responsive grid
+.responsive-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+
+  @include from-tablet {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  @include from-desktop {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+
+  &.cols-2 {
+    @include from-tablet {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  &.cols-4 {
+    @include from-desktop {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+}
+
+// Responsive card
+.responsive-card {
+  padding: 16px;
+
+  @include from-tablet {
+    padding: 20px;
+  }
+
+  @include from-desktop {
+    padding: 24px;
+  }
+}
+
+// Responsive table wrapper
+.responsive-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  table {
+    min-width: 600px; // Ensure table doesn't collapse too much
+  }
+
+  @include mobile {
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+}
+
+// Responsive spacing
+.responsive-spacing {
+  margin-bottom: 16px;
+
+  @include from-tablet {
+    margin-bottom: 20px;
+  }
+
+  @include from-desktop {
+    margin-bottom: 24px;
+  }
+}
+
+// Responsive text sizing
+.responsive-h1 {
+  font-size: 24px;
+
+  @include from-tablet {
+    font-size: 28px;
+  }
+
+  @include from-desktop {
+    font-size: 32px;
+  }
+}
+
+.responsive-h2 {
+  font-size: 20px;
+
+  @include from-tablet {
+    font-size: 24px;
+  }
+
+  @include from-desktop {
+    font-size: 28px;
+  }
+}
+
+.responsive-h3 {
+  font-size: 18px;
+
+  @include from-tablet {
+    font-size: 20px;
+  }
+
+  @include from-desktop {
+    font-size: 24px;
+  }
+}
+
+.responsive-body {
+  font-size: 14px;
+
+  @include from-tablet {
+    font-size: 15px;
+  }
+
+  @include from-desktop {
+    font-size: 16px;
+  }
+}
+
+.responsive-small {
+  font-size: 12px;
+
+  @include from-tablet {
+    font-size: 13px;
+  }
+
+  @include from-desktop {
+    font-size: 14px;
+  }
+}
+
+// Responsive button groups
+.responsive-button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  @include from-tablet {
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  button {
+    width: 100%;
+
+    @include from-tablet {
+      width: auto;
+    }
+  }
+}
+
+// Responsive stat cards
+.responsive-stat-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+
+  @include from-mobile {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @include from-tablet {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  @include from-desktop {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+  }
+}
+
+// Mobile-friendly form
+.responsive-form {
+  .el-form-item {
+    margin-bottom: 16px;
+
+    @include from-desktop {
+      margin-bottom: 22px;
+    }
+  }
+
+  .el-input,
+  .el-select,
+  .el-textarea {
+    width: 100%;
+  }
+
+  // Stack form items vertically on mobile
+  &.el-form--inline {
+    @include mobile {
+      .el-form-item {
+        display: block;
+        margin-right: 0;
+      }
+    }
+  }
+}
+
+// Responsive dialog
+.responsive-dialog {
+  @include mobile {
+    .el-dialog {
+      width: 95% !important;
+      margin: 0 !important;
+    }
+
+    .el-dialog__body {
+      padding: 16px !important;
+    }
+  }
+}
+
+// Responsive pagination
+.responsive-pagination {
+  @include mobile {
+    .el-pagination {
+      .el-pagination__sizes {
+        display: none; // Hide page size selector on mobile
+      }
+
+      .btn-next,
+      .btn-prev,
+      .el-pager li {
+        min-width: 32px;
+        height: 32px;
+        line-height: 32px;
+      }
+    }
+  }
+}
+
+// Responsive sidebar
+.responsive-sidebar {
+  @include mobile {
+    position: fixed;
+    left: -250px;
+    top: 0;
+    bottom: 0;
+    z-index: 1000;
+    transition: left 0.3s ease;
+
+    &.is-open {
+      left: 0;
+    }
+  }
+}
+
+// Mobile overlay (for sidebar)
+.mobile-overlay {
+  display: none;
+
+  @include mobile {
+    &.is-active {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 999;
+    }
+  }
+}
+
+// Responsive tabs
+.responsive-tabs {
+  @include mobile {
+    .el-tabs__nav-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .el-tabs__item {
+      padding: 0 12px;
+      font-size: 13px;
+    }
+  }
+}
+
+// Responsive descriptions
+.responsive-descriptions {
+  @include mobile {
+    .el-descriptions__body .el-descriptions__table .el-descriptions__cell {
+      padding: 8px;
+    }
+
+    .el-descriptions__label {
+      font-size: 12px;
+    }
+
+    .el-descriptions__content {
+      font-size: 13px;
+    }
+  }
+}
+
+// Touch-friendly clickable areas
+.touch-target {
+  min-height: 44px; // iOS recommended touch target size
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// Responsive flex helpers
+.flex-mobile-column {
+  display: flex;
+
+  @include mobile {
+    flex-direction: column;
+  }
+}
+
+.flex-mobile-wrap {
+  display: flex;
+
+  @include mobile {
+    flex-wrap: wrap;
+  }
+}
+
+// Responsive spacing utilities
+.p-responsive {
+  padding: 12px;
+
+  @include from-tablet {
+    padding: 16px;
+  }
+
+  @include from-desktop {
+    padding: 20px;
+  }
+}
+
+.px-responsive {
+  padding-left: 12px;
+  padding-right: 12px;
+
+  @include from-tablet {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  @include from-desktop {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+.py-responsive {
+  padding-top: 12px;
+  padding-bottom: 12px;
+
+  @include from-tablet {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  @include from-desktop {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+}
+
+.m-responsive {
+  margin: 12px;
+
+  @include from-tablet {
+    margin: 16px;
+  }
+
+  @include from-desktop {
+    margin: 20px;
+  }
+}
+
+.mb-responsive {
+  margin-bottom: 12px;
+
+  @include from-tablet {
+    margin-bottom: 16px;
+  }
+
+  @include from-desktop {
+    margin-bottom: 20px;
+  }
+}
+
+// Responsive width utilities
+.w-full-mobile {
+  @include mobile {
+    width: 100% !important;
+  }
+}
+
+.max-w-mobile {
+  @include mobile {
+    max-width: 100%;
+  }
+}
+
+// Scrollable content on mobile
+.scrollable-mobile {
+  @include mobile {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+// Hide scrollbar but keep functionality
+.scrollable-mobile-hidden {
+  @include mobile {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; // Firefox
+    -ms-overflow-style: none; // IE and Edge
+
+    &::-webkit-scrollbar {
+      display: none; // Chrome, Safari, Opera
+    }
+  }
+}
+
+// Responsive image
+.responsive-image {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+// Mobile-specific Element Plus overrides
+@include mobile {
+  // Smaller cards on mobile
+  .el-card {
+    margin-bottom: 12px;
+
+    .el-card__header {
+      padding: 12px;
+    }
+
+    .el-card__body {
+      padding: 12px;
+    }
+  }
+
+  // Full-width buttons on mobile
+  .el-button-group {
+    display: flex;
+    flex-direction: column;
+
+    .el-button {
+      width: 100%;
+      margin: 4px 0;
+    }
+  }
+
+  // Smaller header
+  .el-header {
+    height: auto !important;
+    padding: 12px !important;
+  }
+
+  // Compact menu
+  .el-menu {
+    .el-menu-item,
+    .el-sub-menu__title {
+      height: 48px;
+      line-height: 48px;
+      padding: 0 16px !important;
+    }
+  }
+
+  // Smaller tags
+  .el-tag {
+    padding: 0 6px;
+    height: 24px;
+    line-height: 22px;
+    font-size: 11px;
+  }
+
+  // Compact table
+  .el-table {
+    font-size: 13px;
+
+    .el-table__header th,
+    .el-table__body td {
+      padding: 8px 0;
+    }
+  }
+
+  // Smaller breadcrumb
+  .el-breadcrumb {
+    font-size: 13px;
+
+    .el-breadcrumb__item {
+      .el-breadcrumb__inner {
+        font-size: 13px;
+      }
+    }
+  }
+
+  // Compact dropdown
+  .el-dropdown-menu {
+    min-width: 140px;
+
+    .el-dropdown-menu__item {
+      font-size: 13px;
+      padding: 8px 16px;
+    }
+  }
+}
+
+// Print styles
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-full-width {
+    width: 100% !important;
+  }
+}
