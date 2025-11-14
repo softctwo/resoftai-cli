@@ -45,11 +45,18 @@ ResoftAI 是一个创新的多智能体协作平台，专为软件定制开发�
   - 培训手册
 
 - **🎯 多种交互方式**
-  - RESTful Web API (26个端点)
+  - RESTful Web API (32个端点)
   - Vue 3 前端界面
   - Monaco编辑器集成
   - WebSocket实时通信
   - CLI命令行工具
+
+- **📦 项目模板系统** 🆕
+  - **3个内置模板**: FastAPI REST API, React+FastAPI Web App, Python CLI Tool
+  - **模板API**: 列表、详情、预览、应用
+  - **变量系统**: 支持类型验证、默认值、必填项
+  - **WebSocket实时反馈**: 应用进度实时推送
+  - **多种过滤**: 按分类、标签筛选模板
 
 - **✨ 代码质量保证系统** 🆕
   - **多语言代码质量检查** (支持9种编程语言)
@@ -93,7 +100,8 @@ resoftai-cli/
 │   │       ├── files.py
 │   │       ├── llm_configs.py
 │   │       ├── agent_activities.py
-│   │       └── execution.py
+│   │       ├── execution.py
+│   │       └── templates.py    # 模板API 🆕
 │   ├── models/                  # 数据模型
 │   │   ├── user.py
 │   │   ├── project.py
@@ -109,6 +117,10 @@ resoftai-cli/
 │   │       ├── anthropic_provider.py
 │   │       └── ...
 │   ├── generators/              # 文档生成器
+│   ├── templates/               # 项目模板 🆕
+│   │   ├── base.py             # 模板基类
+│   │   ├── manager.py          # 模板管理器
+│   │   └── registry.py         # 内置模板注册
 │   ├── websocket/               # WebSocket管理
 │   ├── cli/                     # CLI界面
 │   └── config/                  # 配置管理
@@ -132,6 +144,10 @@ resoftai-cli/
 │   ├── start_backend.sh
 │   └── start_frontend.sh
 ├── alembic/                     # 数据库迁移
+├── .github/workflows/           # CI/CD 🆕
+│   └── ci.yml                  # GitHub Actions workflow
+├── Dockerfile                   # Docker容器化 🆕
+├── docker-compose.yml           # Docker Compose配置
 └── docs/                        # 文档
 ```
 
@@ -241,6 +257,26 @@ npm run dev
 bash scripts/start_frontend.sh
 ```
 
+#### 6. Docker部署（推荐）🆕
+
+```bash
+# 使用Docker Compose快速启动
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f api
+
+# 停止服务
+docker-compose down
+```
+
+Docker部署包含：
+- PostgreSQL数据库
+- Redis缓存
+- ResoftAI API服务器
+- 自动健康检查
+- 数据持久化
+
 ### 快速验证
 
 ```bash
@@ -315,11 +351,46 @@ curl "http://localhost:8000/api/execution/{project_id}/artifacts" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
+### 使用项目模板 🆕
+
+```bash
+# 列出所有模板
+curl "http://localhost:8000/api/v1/templates" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# 按分类过滤
+curl "http://localhost:8000/api/v1/templates?category=rest_api" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# 获取模板详情
+curl "http://localhost:8000/api/v1/templates/fastapi-rest-api" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# 应用模板到项目
+curl -X POST "http://localhost:8000/api/v1/templates/python-cli-tool/apply" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_id": 1,
+    "variables": {
+      "project_name": "my-awesome-cli",
+      "description": "My CLI tool",
+      "author": "Your Name",
+      "command_name": "mycli"
+    },
+    "overwrite": false
+  }'
+
+# 监听WebSocket实时进度
+# 连接到 ws://localhost:8000/socket.io
+# 监听事件: template:apply:progress, template:apply:complete
+```
+
 ## 📚 API文档
 
 访问 `http://localhost:8000/docs` 查看完整的交互式API文档。
 
-### 主要API端点 (26个)
+### 主要API端点 (32个)
 
 #### 认证 API
 - `POST /api/auth/register` - 用户注册
@@ -365,6 +436,13 @@ curl "http://localhost:8000/api/execution/{project_id}/artifacts" \
 - `GET /api/agent-activities/active` - 活跃活动
 - `GET /api/agent-activities/{id}` - 活动详情
 
+#### 模板管理 API 🆕
+- `GET /api/v1/templates` - 模板列表（支持分类和标签过滤）
+- `GET /api/v1/templates/{id}` - 模板详情
+- `GET /api/v1/templates/{id}/preview` - 模板预览
+- `POST /api/v1/templates/{id}/apply` - 应用模板
+- `GET /api/v1/templates/categories/list` - 列出分类
+
 #### 系统 API
 - `GET /health` - 健康检查
 
@@ -391,10 +469,13 @@ python tests/test_api_integration.py
 
 ### 测试统计
 
-- ✅ 单元测试: 24个通过 (7个核心 + 17个代码质量)
-- ✅ 测试覆盖率: 基线18%, 代码质量模块88%
+- ✅ 单元测试: **52个通过** (核心 + 代码质量 + 模板API)
+- ✅ 测试覆盖率: **45%** (从43%提升)
+  - 模板系统: 91-100%
+  - 代码质量模块: 88%
+  - API路由: 完整覆盖
 - ✅ API集成测试: 10/10 (100%通过率)
-- ✅ API端点: 26个全部可用
+- ✅ API端点: **32个**全部可用
 - ✅ 数据库表: 8个创建成功
 
 详见 [TESTING.md](TESTING.md) 获取完整的测试文档。
@@ -455,6 +536,12 @@ python tests/test_api_integration.py
 - **Ruff** - 代码检查
 - **MyPy** - 类型检查
 
+### DevOps 🆕
+- **Docker** - 容器化部署
+- **Docker Compose** - 多容器编排
+- **GitHub Actions** - CI/CD自动化
+- **Bandit** - 安全扫描
+
 ## 📊 项目状态
 
 当前版本: **0.2.0** (Beta)
@@ -466,59 +553,64 @@ python tests/test_api_integration.py
 - ✅ 工作流编排器
 - ✅ 项目执行器
 - ✅ 数据库模型（8个表）
-- ✅ RESTful API（26个端点）
+- ✅ RESTful API（**32个端点**）
 - ✅ JWT认证授权
 - ✅ 文件版本控制
 - ✅ LLM抽象层（6个提供商）
 - ✅ WebSocket实时通信
 - ✅ Monaco编辑器集成
-- ✅ 测试框架（50+测试用例）
+- ✅ 测试框架（**52+测试用例**）
 - ✅ API文档（Swagger/ReDoc）
 - ✅ 数据库迁移（Alembic）
 - ✅ 启动脚本和文档
-- ✅ **argon2密码哈希系统** (v0.2.1)
-- ✅ **100% API集成测试通过率** (v0.2.1)
-- ✅ **代码质量检查系统** (支持9种语言) (v0.2.1)
-- ✅ **多语言最佳实践库** (v0.2.1)
-- ✅ **增强的Developer代理** (v0.2.1)
+- ✅ argon2密码哈希系统 (v0.2.1)
+- ✅ 100% API集成测试通过率 (v0.2.1)
+- ✅ 代码质量检查系统 (支持9种语言) (v0.2.1)
+- ✅ 多语言最佳实践库 (v0.2.1)
+- ✅ 增强的Developer代理 (v0.2.1)
+- ✅ **项目模板系统** (v0.2.2) 🆕
+- ✅ **Docker容器化部署** (v0.2.2) 🆕
+- ✅ **CI/CD自动化流程** (v0.2.2) 🆕
 
 ### 进行中 ⏳
 
 - ⏳ 前端UI完善（启动Vue开发服务器，测试前后端集成）
-- ⏳ 提高单元测试覆盖率到80%+
+- ⏳ 提高单元测试覆盖率到80%+ (当前45%)
 - ⏳ 性能优化和负载测试
 - ⏳ 前端代码质量报告显示
 
 ### 计划中 📋
 
+- 📋 更多项目模板（微服务、数据管道、ML项目等）
+- 📋 实时协作功能（多用户编辑、在线状态）
+- 📋 集成静态分析工具API接口 (pylint, mypy, eslint)
 - 📋 生产环境部署指南
-- 📋 Docker容器化
-- 📋 CI/CD流水线
-- 📋 更多智能体能力
-- 📋 项目模板库
-- 📋 实时协作功能
-- 📋 集成静态分析工具 (pylint, eslint)
-- 📋 云服务集成
+- 📋 更多智能体能力扩展
+- 📋 云服务集成（AWS/Azure/GCP）
+- 📋 插件系统
 
 ## 🗺️ 下一步计划
 
-### 即将完成 (v0.2.1)
+### 已完成 (v0.2.2) ✅
 
-1. ✅ ~~**修复bcrypt问题**~~ - 已切换到argon2密码哈希
-2. ✅ ~~**完成API集成测试**~~ - 100%测试通过率
-3. ✅ ~~**代码生成增强**~~ - 完成代码质量检查和多语言支持
-4. **前端集成测试** - 启动Vue应用并测试UI
-5. **提高测试覆盖率** - 目标80%+
-6. **性能测试** - 使用locust进行负载测试
+1. ✅ **项目模板系统** - REST API + WebSocket实时反馈
+2. ✅ **CI/CD自动化** - GitHub Actions + Docker容器化
+3. ✅ **测试覆盖率提升** - 从43%提升至45%
+
+### 即将完成 (v0.2.3)
+
+1. **前端集成测试** - 启动Vue应用并测试UI
+2. **提高测试覆盖率** - 目标60%+ (API Routes, Generator)
+3. **静态分析工具API** - pylint, mypy, eslint集成
+4. **实时协作功能** - WebSocket多用户编辑
 
 ### 中期规划 (v0.3.0)
 
 - 支持更多AI模型（OpenAI GPT, etc.）
 - Web前端界面完善
-- 实时协作功能
-- 项目模板库
-- 集成静态分析工具（pylint, eslint, etc.）
-- 持续集成/部署支持
+- 更多项目模板（微服务、数据管道、ML项目）
+- 实时协作功能完善
+- 性能优化和负载测试
 
 ### 长期目标 (v1.0.0)
 
