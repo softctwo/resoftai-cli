@@ -44,6 +44,18 @@ const routes = [
         component: () => import('@/views/Models.vue'),
         meta: { title: '模型配置', icon: 'Setting' }
       },
+      {
+        path: 'code-quality',
+        name: 'CodeQuality',
+        component: () => import('@/views/CodeQualityChecker.vue'),
+        meta: { title: '代码质量检查', icon: 'DocumentChecked' }
+      },
+      {
+        path: 'templates',
+        name: 'Templates',
+        component: () => import('@/views/TemplateMarketplace.vue'),
+        meta: { title: '模板市场', icon: 'Box' }
+      },
     ]
   },
   {

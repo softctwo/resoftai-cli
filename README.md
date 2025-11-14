@@ -48,11 +48,18 @@ ResoftAI 是一个创新的多智能体协作平台，专为软件定制开发�
   - 培训手册
 
 - **🎯 多种交互方式**
-  - RESTful Web API (26个端点)
+  - RESTful Web API (32个端点)
   - Vue 3 前端界面
   - Monaco编辑器集成
   - WebSocket实时通信
   - CLI命令行工具
+
+- **📦 项目模板系统** 🆕
+  - **3个内置模板**: FastAPI REST API, React+FastAPI Web App, Python CLI Tool
+  - **模板API**: 列表、详情、预览、应用
+  - **变量系统**: 支持类型验证、默认值、必填项
+  - **WebSocket实时反馈**: 应用进度实时推送
+  - **多种过滤**: 按分类、标签筛选模板
 
 - **✨ 代码质量保证系统** 🆕
   - **多语言代码质量检查** (支持9种编程语言)
@@ -109,7 +116,8 @@ resoftai-cli/
 │   │       ├── files.py
 │   │       ├── llm_configs.py
 │   │       ├── agent_activities.py
-│   │       └── execution.py
+│   │       ├── execution.py
+│   │       └── templates.py    # 模板API 🆕
 │   ├── models/                  # 数据模型
 │   │   ├── user.py
 │   │   ├── project.py
@@ -125,6 +133,10 @@ resoftai-cli/
 │   │       ├── anthropic_provider.py
 │   │       └── ...
 │   ├── generators/              # 文档生成器
+│   ├── templates/               # 项目模板 🆕
+│   │   ├── base.py             # 模板基类
+│   │   ├── manager.py          # 模板管理器
+│   │   └── registry.py         # 内置模板注册
 │   ├── websocket/               # WebSocket管理
 │   ├── cli/                     # CLI界面
 │   └── config/                  # 配置管理
@@ -148,6 +160,10 @@ resoftai-cli/
 │   ├── start_backend.sh
 │   └── start_frontend.sh
 ├── alembic/                     # 数据库迁移
+├── .github/workflows/           # CI/CD 🆕
+│   └── ci.yml                  # GitHub Actions workflow
+├── Dockerfile                   # Docker容器化 🆕
+├── docker-compose.yml           # Docker Compose配置
 └── docs/                        # 文档
 ```
 
@@ -358,11 +374,46 @@ curl "http://localhost:8000/api/execution/{project_id}/artifacts" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
+### 使用项目模板 🆕
+
+```bash
+# 列出所有模板
+curl "http://localhost:8000/api/v1/templates" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# 按分类过滤
+curl "http://localhost:8000/api/v1/templates?category=rest_api" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# 获取模板详情
+curl "http://localhost:8000/api/v1/templates/fastapi-rest-api" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# 应用模板到项目
+curl -X POST "http://localhost:8000/api/v1/templates/python-cli-tool/apply" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_id": 1,
+    "variables": {
+      "project_name": "my-awesome-cli",
+      "description": "My CLI tool",
+      "author": "Your Name",
+      "command_name": "mycli"
+    },
+    "overwrite": false
+  }'
+
+# 监听WebSocket实时进度
+# 连接到 ws://localhost:8000/socket.io
+# 监听事件: template:apply:progress, template:apply:complete
+```
+
 ## 📚 API文档
 
 访问 `http://localhost:8000/docs` 查看完整的交互式API文档。
 
-### 主要API端点 (26个)
+### 主要API端点 (32个)
 
 #### 认证 API
 - `POST /api/auth/register` - 用户注册
@@ -408,6 +459,13 @@ curl "http://localhost:8000/api/execution/{project_id}/artifacts" \
 - `GET /api/agent-activities/active` - 活跃活动
 - `GET /api/agent-activities/{id}` - 活动详情
 
+#### 模板管理 API 🆕
+- `GET /api/v1/templates` - 模板列表（支持分类和标签过滤）
+- `GET /api/v1/templates/{id}` - 模板详情
+- `GET /api/v1/templates/{id}/preview` - 模板预览
+- `POST /api/v1/templates/{id}/apply` - 应用模板
+- `GET /api/v1/templates/categories/list` - 列出分类
+
 #### 系统 API
 - `GET /health` - 健康检查
 
@@ -443,7 +501,7 @@ python tests/test_api_integration.py
   - 消息总线: 100%
   - 状态管理: 100%
 - ✅ API集成测试: 10/10 (100%通过率)
-- ✅ API端点: 26个全部可用
+- ✅ API端点: **32个**全部可用
 - ✅ 数据库表: 8个创建成功
 - ✅ CI/CD: GitHub Actions 自动化测试流水线
 
@@ -517,6 +575,12 @@ python tests/test_api_integration.py
 - **GitHub Actions** - CI/CD 自动化
 - **QEMU** - 多架构构建支持
 
+### DevOps 🆕
+- **Docker** - 容器化部署
+- **Docker Compose** - 多容器编排
+- **GitHub Actions** - CI/CD自动化
+- **Bandit** - 安全扫描
+
 ## 📊 项目状态
 
 当前版本: **0.2.2** (Beta)
@@ -529,7 +593,7 @@ python tests/test_api_integration.py
 - ✅ 工作流编排器
 - ✅ 项目执行器
 - ✅ 数据库模型（8个表）
-- ✅ RESTful API（26个端点）
+- ✅ RESTful API（**32个端点**）
 - ✅ JWT认证授权
 - ✅ 文件版本控制
 - ✅ LLM抽象层（6个提供商）

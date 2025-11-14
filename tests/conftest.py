@@ -4,6 +4,7 @@ import asyncio
 from typing import Generator, AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
+from httpx import AsyncClient
 
 from resoftai.db.connection import Base
 from resoftai.models.user import User
@@ -152,3 +153,12 @@ def auth_headers(mock_auth_token):
     return {
         "Authorization": f"Bearer {mock_auth_token}"
     }
+
+
+@pytest.fixture
+async def async_client() -> AsyncGenerator[AsyncClient, None]:
+    """Create async HTTP client for testing."""
+    # Import app here to avoid loading issues in conftest
+    from resoftai.api.main import app
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        yield client

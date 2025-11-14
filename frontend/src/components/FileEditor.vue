@@ -54,9 +54,28 @@
         </div>
 
         <div class="editor-info">
-          <span>{{ currentFile?.path || '未选择文件' }}</span>
+          <span class="file-path">{{ currentFile?.path || '未选择文件' }}</span>
+          <el-divider direction="vertical" />
+          <transition name="fade">
+            <div v-if="isInSession" class="collaboration-status">
+              <div class="status-indicator pulse"></div>
+              <el-icon class="status-icon"><Connection /></el-icon>
+              <span class="status-text">协作中</span>
+              <span v-if="otherUsers.length > 0" class="other-users-count">
+                +{{ otherUsers.length }}
+              </span>
+            </div>
+          </transition>
         </div>
       </div>
+
+      <!-- Active Users Panel -->
+      <ActiveUsers
+        v-if="activeUsers.length > 0"
+        :users="activeUsers"
+        :current-user-id="currentUserId"
+        style="margin-bottom: 10px"
+      />
 
       <!-- Quality Issues Alert -->
       <el-alert
@@ -100,7 +119,9 @@
         :theme="currentTheme"
         :readonly="readonly"
         :options="editorOptions"
+        :remote-cursors="remoteCursors"
         @change="handleContentChange"
+        @cursor-change="handleCursorChange"
       />
     </div>
 
@@ -119,10 +140,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, defineProps, defineEmits } from 'vue'
+import { ref, computed, watch, defineProps, defineEmits, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { MagicStick } from '@element-plus/icons-vue'
+import { MagicStick, Connection } from '@element-plus/icons-vue'
 import MonacoEditor from './MonacoEditor.vue'
+import ActiveUsers from './ActiveUsers.vue'
+import { useCollaborativeEditing } from '../composables/useCollaborativeEditing'
 
 const props = defineProps({
   modelValue: {
@@ -136,10 +159,44 @@ const props = defineProps({
   readonly: {
     type: Boolean,
     default: false
+  },
+  projectId: {
+    type: Number,
+    default: null
+  },
+  userId: {
+    type: Number,
+    default: null
+  },
+  username: {
+    type: String,
+    default: 'Anonymous'
   }
 })
 
 const emit = defineEmits(['update:modelValue', 'save'])
+
+// Collaborative editing setup
+const currentUserId = computed(() => props.userId)
+const {
+  activeUsers,
+  remoteCursors,
+  isInSession,
+  joinFileSession,
+  leaveFileSession,
+  sendFileEdit,
+  sendCursorPosition,
+  handleRemoteEdit
+} = useCollaborativeEditing(
+  computed(() => props.file?.id),
+  computed(() => props.projectId),
+  currentUserId,
+  computed(() => props.username)
+)
+
+// Track content change timer for sending edits
+let editDebounceTimer = null
+let cursorDebounceTimer = null
 
 const visible = computed({
   get: () => props.modelValue,
@@ -180,8 +237,22 @@ watch(() => props.file, (newFile) => {
     editorContent.value = newFile.content || ''
     currentLanguage.value = newFile.language || detectLanguage(newFile.path)
     hasChanges.value = false
+
+    // Join collaborative session when file is opened
+    if (props.projectId && props.userId && newFile.id) {
+      setTimeout(() => {
+        joinFileSession()
+      }, 500)
+    }
   }
 }, { immediate: true })
+
+// Cleanup on component unmount
+onUnmounted(() => {
+  leaveFileSession()
+  clearTimeout(editDebounceTimer)
+  clearTimeout(cursorDebounceTimer)
+})
 
 function detectLanguage(path) {
   if (!path) return 'javascript'
@@ -210,8 +281,27 @@ function detectLanguage(path) {
   return languageMap[ext] || 'plaintext'
 }
 
-function handleContentChange(content) {
+function handleContentChange(content, changes) {
   hasChanges.value = content !== (props.file?.content || '')
+
+  // Send collaborative edit if in session
+  if (isInSession.value && changes) {
+    // Debounce to avoid too many messages
+    clearTimeout(editDebounceTimer)
+    editDebounceTimer = setTimeout(() => {
+      sendFileEdit(changes)
+    }, 300)
+  }
+}
+
+// Handle cursor position changes
+function handleCursorChange(position, selection) {
+  if (isInSession.value) {
+    clearTimeout(cursorDebounceTimer)
+    cursorDebounceTimer = setTimeout(() => {
+      sendCursorPosition(position, selection)
+    }, 500)
+  }
 }
 
 function handleClose() {
@@ -411,5 +501,88 @@ function goToLine(lineNumber) {
   color: #909399;
   font-size: 13px;
   padding: 8px;
+}
+
+/* Collaboration status */
+.collaboration-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
+  border: 1px solid #81c784;
+  border-radius: 16px;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  background: #4caf50;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
+}
+
+.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.status-icon {
+  font-size: 14px;
+  color: #4caf50;
+}
+
+.status-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #2e7d32;
+}
+
+.other-users-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1b5e20;
+  background: rgba(76, 175, 80, 0.2);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.file-path {
+  color: var(--el-text-color-regular);
+  font-size: 14px;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.3);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
 }
 </style>
