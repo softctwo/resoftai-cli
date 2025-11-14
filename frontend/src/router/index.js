@@ -35,7 +35,7 @@ const routes = [
       {
         path: 'files',
         name: 'Files',
-        component: () => import('@/views/Files.vue'),
+        component: () => import('@/views/FilesEnhanced.vue'),
         meta: { title: '文件管理', icon: 'Files' }
       },
       {
