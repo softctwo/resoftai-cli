@@ -94,6 +94,36 @@ class PluginReviewCreate(BaseModel):
     content: Optional[str] = None
 
 
+class PluginVersionRequest(BaseModel):
+    """Request model for publishing a new plugin version"""
+    version: str = Field(..., pattern="^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    changelog: Optional[str] = None
+    package_url: str = Field(..., description="URL to download the plugin package")
+    package_checksum: str = Field(..., description="SHA256 checksum of the package")
+    min_platform_version: Optional[str] = None
+    max_platform_version: Optional[str] = None
+    is_stable: bool = True
+
+
+class PluginVersionResponse(BaseModel):
+    """Response model for plugin version"""
+    id: int
+    plugin_id: int
+    version: str
+    changelog: Optional[str]
+    package_url: str
+    package_checksum: str
+    min_platform_version: Optional[str]
+    max_platform_version: Optional[str]
+    is_stable: bool
+    is_deprecated: bool
+    downloads_count: int
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
 class PluginReviewResponse(BaseModel):
     """Response model for plugin review"""
     id: int
@@ -474,3 +504,236 @@ async def list_reviews(
     )
 
     return reviews
+
+
+# =============================================================================
+# Plugin Version Management Endpoints
+# =============================================================================
+
+@router.post("/{plugin_id}/versions", response_model=PluginVersionResponse, status_code=status.HTTP_201_CREATED)
+async def publish_plugin_version(
+    plugin_id: int,
+    version_data: PluginVersionRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Publish a new version of a plugin
+
+    Only the plugin author can publish new versions.
+    """
+    plugin = await plugin_crud.get_plugin_by_id(db, plugin_id)
+
+    if not plugin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Plugin not found"
+        )
+
+    # Check ownership
+    if plugin.author_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to publish versions for this plugin"
+        )
+
+    # Check if version already exists
+    existing_versions = await plugin_crud.get_plugin_versions(db, plugin_id)
+    for v in existing_versions:
+        if v.version == version_data.version:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Version {version_data.version} already exists"
+            )
+
+    # Create new version
+    version = await plugin_crud.create_plugin_version(
+        db=db,
+        plugin_id=plugin_id,
+        version=version_data.version,
+        package_url=version_data.package_url,
+        package_checksum=version_data.package_checksum,
+        changelog=version_data.changelog,
+        min_platform_version=version_data.min_platform_version,
+        max_platform_version=version_data.max_platform_version,
+        is_stable=version_data.is_stable
+    )
+
+    # Update plugin's current version if this is the latest stable version
+    if version_data.is_stable:
+        await plugin_crud.update_plugin(
+            db=db,
+            plugin_id=plugin_id,
+            version=version_data.version,
+            package_url=version_data.package_url,
+            package_checksum=version_data.package_checksum
+        )
+
+    return version
+
+
+@router.get("/{plugin_id}/versions", response_model=List[PluginVersionResponse])
+async def list_plugin_versions(
+    plugin_id: int,
+    stable_only: bool = Query(False, description="Only return stable versions"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List all versions for a plugin
+    """
+    plugin = await plugin_crud.get_plugin_by_id(db, plugin_id)
+
+    if not plugin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Plugin not found"
+        )
+
+    versions = await plugin_crud.get_plugin_versions(db, plugin_id)
+
+    if stable_only:
+        versions = [v for v in versions if v.is_stable and not v.is_deprecated]
+
+    return versions
+
+
+@router.get("/{plugin_id}/versions/{version}", response_model=PluginVersionResponse)
+async def get_plugin_version(
+    plugin_id: int,
+    version: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get specific version details
+    """
+    from sqlalchemy import select, and_
+    from resoftai.models.plugin import PluginVersion
+
+    result = await db.execute(
+        select(PluginVersion).where(
+            and_(
+                PluginVersion.plugin_id == plugin_id,
+                PluginVersion.version == version
+            )
+        )
+    )
+    plugin_version = result.scalar_one_or_none()
+
+    if not plugin_version:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Version {version} not found for this plugin"
+        )
+
+    return plugin_version
+
+
+@router.post("/{plugin_id}/versions/{version}/deprecate", status_code=status.HTTP_200_OK)
+async def deprecate_plugin_version(
+    plugin_id: int,
+    version: str,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Deprecate a specific plugin version
+
+    Only the plugin author or admin can deprecate versions.
+    """
+    plugin = await plugin_crud.get_plugin_by_id(db, plugin_id)
+
+    if not plugin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Plugin not found"
+        )
+
+    # Check ownership
+    if plugin.author_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to deprecate this version"
+        )
+
+    # Get the version
+    from sqlalchemy import select, and_, update
+    from resoftai.models.plugin import PluginVersion
+
+    result = await db.execute(
+        select(PluginVersion).where(
+            and_(
+                PluginVersion.plugin_id == plugin_id,
+                PluginVersion.version == version
+            )
+        )
+    )
+    plugin_version = result.scalar_one_or_none()
+
+    if not plugin_version:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Version {version} not found"
+        )
+
+    # Mark as deprecated
+    await db.execute(
+        update(PluginVersion)
+        .where(PluginVersion.id == plugin_version.id)
+        .values(is_deprecated=True)
+    )
+    await db.commit()
+
+    return {
+        "message": f"Version {version} has been deprecated",
+        "plugin_id": plugin_id,
+        "version": version
+    }
+
+
+@router.post("/{plugin_id}/versions/{version}/download", status_code=status.HTTP_200_OK)
+async def track_plugin_version_download(
+    plugin_id: int,
+    version: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Track download of a specific plugin version
+
+    Call this endpoint before downloading to increment download counter.
+    """
+    from sqlalchemy import select, and_, update
+    from resoftai.models.plugin import PluginVersion
+
+    result = await db.execute(
+        select(PluginVersion).where(
+            and_(
+                PluginVersion.plugin_id == plugin_id,
+                PluginVersion.version == version
+            )
+        )
+    )
+    plugin_version = result.scalar_one_or_none()
+
+    if not plugin_version:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Version {version} not found"
+        )
+
+    # Increment download counter
+    await db.execute(
+        update(PluginVersion)
+        .where(PluginVersion.id == plugin_version.id)
+        .values(downloads_count=PluginVersion.downloads_count + 1)
+    )
+    await db.commit()
+
+    # Also increment plugin download counter
+    await plugin_crud.increment_plugin_downloads(db, plugin_id)
+
+    return {
+        "message": "Download tracked",
+        "plugin_id": plugin_id,
+        "version": version,
+        "download_url": plugin_version.package_url
+    }
