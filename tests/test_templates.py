@@ -16,6 +16,9 @@ from resoftai.templates.registry import (
     create_rest_api_template,
     create_web_app_template,
     create_cli_tool_template,
+    create_microservice_template,
+    create_data_pipeline_template,
+    create_ml_project_template,
 )
 
 
@@ -475,7 +478,7 @@ class TestBuiltinTemplates:
         """Test getting all built-in templates."""
         templates = get_builtin_templates()
 
-        assert len(templates) >= 3
+        assert len(templates) >= 6  # Now we have 6 built-in templates
         assert all(isinstance(t, Template) for t in templates)
 
     def test_rest_api_template(self):
@@ -510,6 +513,92 @@ class TestBuiltinTemplates:
         assert template.category == TemplateCategory.CLI_TOOL
         assert "cli" in template.tags
         assert template.get_variable("command_name") is not None
+
+    def test_microservice_template(self):
+        """Test microservice architecture template."""
+        template = create_microservice_template()
+
+        assert template.id == "microservice-architecture"
+        assert template.category == TemplateCategory.MICROSERVICE
+        assert "microservices" in template.tags
+        assert "docker" in template.tags
+        assert "kubernetes" in template.tags
+
+        # Check required variables
+        assert template.get_variable("project_name") is not None
+        assert template.get_variable("use_grpc") is not None
+        assert template.get_variable("use_message_queue") is not None
+
+        # Check directories
+        assert "services/gateway" in template.directories
+        assert "services/auth" in template.directories
+        assert "k8s/deployments" in template.directories
+
+        # Check files
+        assert len(template.files) > 0
+        readme_file = next((f for f in template.files if f.path == "README.md"), None)
+        assert readme_file is not None
+        assert "microservices" in readme_file.content.lower()
+
+    def test_data_pipeline_template(self):
+        """Test data pipeline template."""
+        template = create_data_pipeline_template()
+
+        assert template.id == "data-pipeline-airflow"
+        assert template.category == TemplateCategory.DATA_PIPELINE
+        assert "data-pipeline" in template.tags
+        assert "airflow" in template.tags
+        assert "etl" in template.tags
+
+        # Check variables
+        assert template.get_variable("project_name") is not None
+        assert template.get_variable("use_spark") is not None
+        assert template.get_variable("use_dbt") is not None
+
+        # Check directories
+        assert "dags" in template.directories
+        assert "data/raw" in template.directories
+        assert "data/processed" in template.directories
+
+        # Check files
+        assert len(template.files) > 0
+        dag_file = next((f for f in template.files if "example_etl_dag.py" in f.path), None)
+        assert dag_file is not None
+        assert "airflow" in dag_file.content.lower()
+
+    def test_ml_project_template(self):
+        """Test machine learning project template."""
+        template = create_ml_project_template()
+
+        assert template.id == "ml-project-template"
+        assert template.category == TemplateCategory.ML_PROJECT
+        assert "machine-learning" in template.tags
+        assert "ml" in template.tags
+        assert "data-science" in template.tags
+
+        # Check variables
+        assert template.get_variable("project_name") is not None
+        assert template.get_variable("ml_framework") is not None
+        assert template.get_variable("use_mlflow") is not None
+
+        # Check ml_framework choices
+        ml_framework_var = template.get_variable("ml_framework")
+        assert ml_framework_var.type == "choice"
+        assert "scikit-learn" in ml_framework_var.choices
+        assert "pytorch" in ml_framework_var.choices
+        assert "tensorflow" in ml_framework_var.choices
+
+        # Check directories
+        assert "data/raw" in template.directories
+        assert "models" in template.directories
+        assert "notebooks" in template.directories
+        assert "src/data" in template.directories
+        assert "src/models" in template.directories
+
+        # Check files
+        assert len(template.files) > 0
+        train_file = next((f for f in template.files if "train_model.py" in f.path), None)
+        assert train_file is not None
 
 
 class TestTemplateIntegration:
@@ -574,3 +663,92 @@ class TestTemplateIntegration:
         assert preview is not None
         assert "files" in preview
         assert "setup_commands" in preview
+
+    def test_microservice_template_workflow(self, tmp_path):
+        """Test microservice template workflow."""
+        manager = TemplateManager()
+        template = create_microservice_template()
+        manager.register_template(template)
+
+        output_dir = tmp_path / "my_microservices"
+        variables = {
+            "project_name": "MyMicroservices",
+            "description": "Microservices platform",
+            "author": "Test Author",
+            "use_grpc": "true",
+            "use_message_queue": "true",
+        }
+
+        success = manager.apply_template(template.id, output_dir, variables)
+
+        assert success is True
+        assert (output_dir / "services" / "gateway").exists()
+        assert (output_dir / "services" / "auth").exists()
+        assert (output_dir / "k8s" / "deployments").exists()
+        assert (output_dir / "docker-compose.yml").exists()
+
+        # Verify content
+        docker_compose = (output_dir / "docker-compose.yml").read_text()
+        assert "rabbitmq" in docker_compose
+        assert "MyMicroservices" in (output_dir / "README.md").read_text()
+
+    def test_data_pipeline_template_workflow(self, tmp_path):
+        """Test data pipeline template workflow."""
+        manager = TemplateManager()
+        template = create_data_pipeline_template()
+        manager.register_template(template)
+
+        output_dir = tmp_path / "my_pipeline"
+        variables = {
+            "project_name": "MyPipeline",
+            "description": "Data pipeline project",
+            "author": "Test Author",
+            "use_spark": "false",
+            "use_dbt": "true",
+        }
+
+        success = manager.apply_template(template.id, output_dir, variables)
+
+        assert success is True
+        assert (output_dir / "dags").exists()
+        assert (output_dir / "data" / "raw").exists()
+        assert (output_dir / "data" / "processed").exists()
+        assert (output_dir / "airflow.cfg").exists()
+
+        # Verify content
+        readme = (output_dir / "README.md").read_text()
+        assert "MyPipeline" in readme
+        assert "dbt" in readme
+
+    def test_ml_project_template_workflow(self, tmp_path):
+        """Test ML project template workflow."""
+        manager = TemplateManager()
+        template = create_ml_project_template()
+        manager.register_template(template)
+
+        output_dir = tmp_path / "my_ml_project"
+        variables = {
+            "project_name": "MyMLProject",
+            "description": "ML project for predictions",
+            "author": "Test Author",
+            "ml_framework": "pytorch",
+            "use_mlflow": "true",
+        }
+
+        success = manager.apply_template(template.id, output_dir, variables)
+
+        assert success is True
+        assert (output_dir / "data" / "raw").exists()
+        assert (output_dir / "models").exists()
+        assert (output_dir / "notebooks").exists()
+        assert (output_dir / "src" / "models" / "train_model.py").exists()
+
+        # Verify content
+        readme = (output_dir / "README.md").read_text()
+        assert "MyMLProject" in readme
+        assert "pytorch" in readme
+        assert "mlflow" in readme.lower()
+
+        # Verify setup.py has correct package name
+        setup_py = (output_dir / "setup.py").read_text()
+        assert "my_ml_project" in setup_py
