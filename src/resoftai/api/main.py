@@ -7,7 +7,7 @@ import socketio
 
 from resoftai.config import Settings
 from resoftai.db import init_db, close_db
-from resoftai.api.routes import auth, projects, agent_activities, files, llm_configs, execution, templates, performance
+from resoftai.api.routes import auth, projects, agent_activities, files, llm_configs, execution, templates, code_analysis, ai_features
 from resoftai.websocket import sio
 
 logger = logging.getLogger(__name__)
@@ -172,7 +172,8 @@ app.include_router(files.router, prefix="/api")
 app.include_router(llm_configs.router, prefix="/api")
 app.include_router(execution.router, prefix="/api")
 app.include_router(templates.router, prefix="/api/v1")
-app.include_router(performance.router, prefix="/api")
+app.include_router(code_analysis.router, prefix="/api")
+app.include_router(ai_features.router, prefix="/api")
 
 # Mount Socket.IO
 socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
