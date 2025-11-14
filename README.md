@@ -4,6 +4,9 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
 [![Vue 3](https://img.shields.io/badge/Vue-3.x-brightgreen.svg)](https://vuejs.org/)
+[![Test Coverage](https://img.shields.io/badge/coverage-43%25-yellow.svg)](https://github.com/softctwo/resoftai-cli)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-blue.svg)](https://github.com/softctwo/resoftai-cli/actions)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://hub.docker.com/)
 
 > AI驱动的软件定制开发服务平台，通过多智能体协作自动化完成从需求到交付的全流程
 
@@ -73,6 +76,19 @@ ResoftAI 是一个创新的多智能体协作平台，专为软件定制开发�
   - **语言特定最佳实践库** (编码标准、命名规范、安全实践)
   - **智能语言检测** (自动识别项目所需语言)
   - **框架推荐系统** (为每种语言推荐合适的框架)
+
+- **🔄 CI/CD 自动化** 🆕
+  - **GitHub Actions 工作流** (自动化测试、构建、部署)
+  - **多架构 Docker 构建** (支持 linux/amd64、linux/arm64)
+  - **自动化测试流程** (单元测试、集成测试、覆盖率报告)
+  - **代码质量检查** (Ruff、MyPy、Bandit 安全扫描)
+  - **覆盖率趋势跟踪** (PR 自动评论覆盖率变化)
+
+- **🐳 Docker 容器化支持** 🆕
+  - **多阶段 Docker 构建** (优化镜像大小)
+  - **Docker Compose 编排** (一键启动完整环境)
+  - **健康检查配置** (自动监控服务状态)
+  - **生产就绪配置** (非 root 用户、安全加固)
 
 ## 🏗️ 系统架构
 
@@ -263,25 +279,32 @@ npm run dev
 bash scripts/start_frontend.sh
 ```
 
-#### 6. Docker部署（推荐）🆕
+### 🐳 Docker Compose 快速启动 (推荐)
+
+使用 Docker Compose 一键启动完整环境：
 
 ```bash
-# 使用Docker Compose快速启动
+# 1. 配置环境变量
+cp .env.example .env
+nano .env  # 添加 LLM_API_KEY
+
+# 2. 启动所有服务
 docker-compose up -d
 
-# 查看日志
-docker-compose logs -f api
+# 3. 查看服务状态
+docker-compose ps
 
-# 停止服务
+# 4. 查看日志
+docker-compose logs -f backend
+
+# 5. 停止服务
 docker-compose down
 ```
 
-Docker部署包含：
-- PostgreSQL数据库
-- Redis缓存
-- ResoftAI API服务器
-- 自动健康检查
-- 数据持久化
+服务访问地址：
+- **Backend API**: http://localhost:8000
+- **API 文档**: http://localhost:8000/docs
+- **PostgreSQL**: localhost:5432
 
 ### 快速验证
 
@@ -480,7 +503,8 @@ python tests/test_api_integration.py
   - 增强智能体: 87-89%
   - 模板系统: 91-100%
   - 代码质量模块: 88%
-  - API路由: 完整覆盖
+  - 消息总线: 100%
+  - 状态管理: 100%
 - ✅ API集成测试: 10/10 (100%通过率)
 - ✅ API端点: **32个**全部可用
 - ✅ 数据库表: 8个创建成功
@@ -543,6 +567,13 @@ python tests/test_api_integration.py
 - **Black** - 代码格式化
 - **Ruff** - 代码检查
 - **MyPy** - 类型检查
+- **Bandit** - 安全扫描
+
+### DevOps & 部署
+- **Docker** - 容器化
+- **Docker Compose** - 服务编排
+- **GitHub Actions** - CI/CD 自动化
+- **QEMU** - 多架构构建支持
 
 ### DevOps 🆕
 - **Docker** - 容器化部署
@@ -552,10 +583,11 @@ python tests/test_api_integration.py
 
 ## 📊 项目状态
 
-当前版本: **0.2.0** (Beta)
+当前版本: **0.2.2** (Beta)
 
 ### 已完成功能 ✅
 
+#### 核心功能
 - ✅ 核心框架完成
 - ✅ 7个专业智能体实现
 - ✅ 工作流编排器
@@ -567,67 +599,100 @@ python tests/test_api_integration.py
 - ✅ LLM抽象层（6个提供商）
 - ✅ WebSocket实时通信
 - ✅ Monaco编辑器集成
-- ✅ 测试框架（**52+测试用例**）
 - ✅ API文档（Swagger/ReDoc）
 - ✅ 数据库迁移（Alembic）
-- ✅ 启动脚本和文档
-- ✅ argon2密码哈希系统 (v0.2.1)
-- ✅ 100% API集成测试通过率 (v0.2.1)
-- ✅ 代码质量检查系统 (支持9种语言) (v0.2.1)
-- ✅ 多语言最佳实践库 (v0.2.1)
-- ✅ 增强的Developer代理 (v0.2.1)
-- ✅ **项目模板系统** (v0.2.2) 🆕
-- ✅ **Docker容器化部署** (v0.2.2) 🆕
-- ✅ **CI/CD自动化流程** (v0.2.2) 🆕
+
+#### 代码质量与安全 (v0.2.1)
+- ✅ **argon2密码哈希系统**
+- ✅ **代码质量检查系统** (支持9种语言)
+- ✅ **多语言最佳实践库**
+- ✅ **增强的Developer代理**
+- ✅ **100% API集成测试通过率**
+
+#### CI/CD & DevOps (v0.2.2) 🆕
+- ✅ **GitHub Actions 自动化流水线**
+  - 自动化单元测试（Python 3.11、3.12）
+  - 代码质量检查（Ruff、MyPy）
+  - 安全扫描（Bandit）
+  - 覆盖率报告（Codecov 集成）
+  - PR 覆盖率评论
+- ✅ **Docker 容器化**
+  - 多阶段构建优化
+  - 多架构支持（amd64、arm64）
+  - Docker Compose 编排
+  - 健康检查配置
+  - 非 root 用户运行
+- ✅ **测试覆盖率提升**
+  - 从 41% 提升到 43% (+2%)
+  - 新增 40+ 测试用例
+  - 配置、认证、数据库测试覆盖
+- ✅ **数据库兼容性改进**
+  - SQLite/PostgreSQL 智能切换
+  - 连接池配置优化
 
 ### 进行中 ⏳
 
 - ⏳ 前端UI完善（启动Vue开发服务器，测试前后端集成）
-- ⏳ 提高单元测试覆盖率到80%+ (当前45%)
+- ⏳ 提高单元测试覆盖率到 60%+ (当前 43%)
 - ⏳ 性能优化和负载测试
 - ⏳ 前端代码质量报告显示
+- ⏳ 项目模板系统完善
 
 ### 计划中 📋
 
-- 📋 更多项目模板（微服务、数据管道、ML项目等）
-- 📋 实时协作功能（多用户编辑、在线状态）
-- 📋 集成静态分析工具API接口 (pylint, mypy, eslint)
+#### 短期目标 (v0.3.0)
 - 📋 生产环境部署指南
+- 📋 Kubernetes 部署配置
 - 📋 更多智能体能力扩展
-- 📋 云服务集成（AWS/Azure/GCP）
-- 📋 插件系统
+- 📋 项目模板市场
+- 📋 实时协作功能
+- 📋 集成静态分析工具 (pylint, eslint)
+- 📋 性能监控和日志聚合
+
+#### 长期目标 (v1.0.0)
+- 📋 云服务集成 (AWS/Azure/GCP)
+- 📋 企业版功能 (多租户、权限管理)
+- 📋 私有化部署支持
+- 📋 插件系统架构
+- 📋 社区和市场平台
 
 ## 🗺️ 下一步计划
 
-### 已完成 (v0.2.2) ✅
+### v0.2.2 完成清单 ✅
 
-1. ✅ **项目模板系统** - REST API + WebSocket实时反馈
-2. ✅ **CI/CD自动化** - GitHub Actions + Docker容器化
-3. ✅ **测试覆盖率提升** - 从43%提升至45%
+1. ✅ ~~**修复bcrypt问题**~~ - 已切换到argon2密码哈希
+2. ✅ ~~**完成API集成测试**~~ - 100%测试通过率
+3. ✅ ~~**代码生成增强**~~ - 完成代码质量检查和多语言支持
+4. ✅ ~~**GitHub Actions CI/CD**~~ - 自动化测试、构建、部署流水线
+5. ✅ ~~**Docker 容器化**~~ - 多架构构建、Docker Compose 编排
+6. ✅ ~~**测试覆盖率提升**~~ - 从 41% 提升到 43%
+7. ✅ ~~**数据库兼容性**~~ - SQLite/PostgreSQL 智能切换
 
 ### 即将完成 (v0.2.3)
 
 1. **前端集成测试** - 启动Vue应用并测试UI
-2. **提高测试覆盖率** - 目标60%+ (API Routes, Generator)
-3. **静态分析工具API** - pylint, mypy, eslint集成
-4. **实时协作功能** - WebSocket多用户编辑
+2. **提高测试覆盖率** - 目标 60%+ (当前 43%)
+3. **性能测试** - 使用locust进行负载测试
+4. **项目模板系统** - 完善模板API和前端集成
 
 ### 中期规划 (v0.3.0)
 
 - 支持更多AI模型（OpenAI GPT, etc.）
 - Web前端界面完善
-- 更多项目模板（微服务、数据管道、ML项目）
-- 实时协作功能完善
-- 性能优化和负载测试
+- 实时协作功能
+- 项目模板市场
+- 集成静态分析工具（pylint, eslint, etc.）
+- Kubernetes 部署配置
+- 性能监控和日志聚合
 
 ### 长期目标 (v1.0.0)
 
 - 多语言支持（国际化）
 - 云服务部署（AWS/Azure/GCP）
-- 企业版功能
+- 企业版功能（多租户、RBAC权限）
 - 私有化部署支持
-- 插件系统
-- 市场和社区
+- 插件系统架构
+- 社区和市场平台
 
 ## 🤝 贡献指南
 

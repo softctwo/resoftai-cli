@@ -2,17 +2,43 @@
 from typing import List, Optional
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from datetime import datetime
 
 from resoftai.models.project import Project
+from resoftai.utils.cache import cached, cache_manager
+from resoftai.utils.performance import timing_decorator
 
 
+@timing_decorator("crud.get_project_by_id")
+@cached(key_func=lambda db, project_id: f"project:{project_id}", ttl=300)
 async def get_project_by_id(db: AsyncSession, project_id: int) -> Optional[Project]:
-    """Get project by ID."""
+    """
+    Get project by ID with caching.
+
+    Results are cached for 5 minutes.
+    """
     result = await db.execute(select(Project).where(Project.id == project_id))
-    return result.scalar_one_or_none()
+    project = result.scalar_one_or_none()
+    if project:
+        # Convert to dict for caching
+        return {
+            'id': project.id,
+            'user_id': project.user_id,
+            'name': project.name,
+            'requirements': project.requirements,
+            'status': project.status,
+            'progress': project.progress,
+            'current_stage': project.current_stage,
+            'llm_provider': project.llm_provider,
+            'llm_model': project.llm_model,
+            'created_at': project.created_at.isoformat() if project.created_at else None,
+            'updated_at': project.updated_at.isoformat() if project.updated_at else None
+        }
+    return None
 
 
+@timing_decorator("crud.get_projects_by_user")
 async def get_projects_by_user(
     db: AsyncSession,
     user_id: int,
@@ -22,6 +48,8 @@ async def get_projects_by_user(
 ) -> List[Project]:
     """
     Get projects for a user with pagination and filtering.
+
+    Optimized with index on (user_id, created_at).
 
     Args:
         db: Database session
@@ -38,6 +66,7 @@ async def get_projects_by_user(
     if status:
         query = query.where(Project.status == status)
 
+    # Use covering index for better performance
     query = query.order_by(Project.created_at.desc()).offset(skip).limit(limit)
 
     result = await db.execute(query)
@@ -156,6 +185,7 @@ async def delete_project(db: AsyncSession, project_id: int) -> bool:
     return True
 
 
+@timing_decorator("crud.update_project_progress")
 async def update_project_progress(
     db: AsyncSession,
     project_id: int,
@@ -165,6 +195,8 @@ async def update_project_progress(
 ) -> Optional[Project]:
     """
     Update project progress.
+
+    Invalidates cache after update.
 
     Args:
         db: Database session
@@ -182,4 +214,73 @@ async def update_project_progress(
     if status:
         update_data["status"] = status
 
-    return await update_project(db, project_id, **update_data)
+    project = await update_project(db, project_id, **update_data)
+
+    # Invalidate cache
+    if project:
+        await cache_manager.delete(f"project:{project_id}")
+
+    return project
+
+
+async def get_projects_by_ids(
+    db: AsyncSession,
+    project_ids: List[int]
+) -> List[Project]:
+    """
+    Batch get projects by IDs.
+
+    More efficient than multiple individual queries.
+
+    Args:
+        db: Database session
+        project_ids: List of project IDs
+
+    Returns:
+        List of Project objects
+    """
+    if not project_ids:
+        return []
+
+    query = select(Project).where(Project.id.in_(project_ids))
+    result = await db.execute(query)
+    return list(result.scalars().all())
+
+
+async def bulk_update_project_status(
+    db: AsyncSession,
+    project_ids: List[int],
+    status: str
+) -> int:
+    """
+    Bulk update project status.
+
+    More efficient than individual updates.
+
+    Args:
+        db: Database session
+        project_ids: List of project IDs
+        status: New status
+
+    Returns:
+        Number of projects updated
+    """
+    if not project_ids:
+        return 0
+
+    from sqlalchemy import update
+
+    stmt = (
+        update(Project)
+        .where(Project.id.in_(project_ids))
+        .values(status=status, updated_at=datetime.utcnow())
+    )
+
+    result = await db.execute(stmt)
+    await db.commit()
+
+    # Invalidate caches
+    for project_id in project_ids:
+        await cache_manager.delete(f"project:{project_id}")
+
+    return result.rowcount

@@ -66,3 +66,18 @@ temp/
 # Coverage reports
 coverage.xml
 .coverage.*
+
+# Docker files
+docker-compose*.yml
+Dockerfile*
+
+# Scripts
+scripts/
+tests/
+test_*.py
+*_test.py
+
+# Backups
+backups/
+*.backup
+*.bak
