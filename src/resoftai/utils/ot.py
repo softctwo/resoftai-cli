@@ -128,17 +128,23 @@ class TextOperation:
             Transformed text
         """
         result = text
-        offset = 0  # Track position changes due to insertions/deletions
 
-        for op in self.operations:
+        # Sort operations by position (descending) to apply from end to beginning
+        # This prevents position shifting issues - changes at later positions
+        # don't affect earlier positions
+        sorted_ops = sorted(
+            self.operations,
+            key=lambda op: op.position,
+            reverse=True
+        )
+
+        for op in sorted_ops:
             if op.type == OperationType.INSERT:
-                pos = op.position + offset
+                pos = op.position
                 result = result[:pos] + op.text + result[pos:]
-                offset += len(op.text)
             elif op.type == OperationType.DELETE:
-                pos = op.position + offset
+                pos = op.position
                 result = result[:pos] + result[pos + op.length:]
-                offset -= op.length
 
         return result
 
