@@ -181,7 +181,16 @@ async def approve_plugin(
         published_at=datetime.utcnow()
     )
 
-    # TODO: Send notification to author
+    # Send notification to author
+    from resoftai.services.notification_service import get_notification_service
+    service = await get_notification_service(db)
+    await service.notify_plugin_approved(
+        user_id=plugin.author_id,
+        plugin_name=plugin.name,
+        plugin_id=plugin_id,
+        plugin_url=f"/plugins/marketplace/{plugin_id}"
+    )
+
     # TODO: Log admin action in audit log
 
     return {
@@ -230,7 +239,16 @@ async def reject_plugin(
         status=PluginStatus.REJECTED
     )
 
-    # TODO: Send rejection notification to author with feedback
+    # Send rejection notification to author with feedback
+    from resoftai.services.notification_service import get_notification_service
+    service = await get_notification_service(db)
+    await service.notify_plugin_rejected(
+        user_id=plugin.author_id,
+        plugin_name=plugin.name,
+        plugin_id=plugin_id,
+        feedback=action.feedback
+    )
+
     # TODO: Log admin action in audit log
 
     return {
@@ -353,7 +371,16 @@ async def approve_template(
         published_at=datetime.utcnow()
     )
 
-    # TODO: Send notification to author
+    # Send notification to author
+    from resoftai.services.notification_service import get_notification_service
+    service = await get_notification_service(db)
+    await service.notify_template_approved(
+        user_id=template.author_id,
+        template_name=template.name,
+        template_id=template_id,
+        template_url=f"/templates/marketplace/{template_id}"
+    )
+
     # TODO: Log admin action in audit log
 
     return {
@@ -402,7 +429,16 @@ async def reject_template(
         status=TemplateStatus.REJECTED
     )
 
-    # TODO: Send rejection notification to author with feedback
+    # Send rejection notification to author with feedback
+    from resoftai.services.notification_service import get_notification_service
+    service = await get_notification_service(db)
+    await service.notify_template_rejected(
+        user_id=template.author_id,
+        template_name=template.name,
+        template_id=template_id,
+        feedback=action.feedback
+    )
+
     # TODO: Log admin action in audit log
 
     return {

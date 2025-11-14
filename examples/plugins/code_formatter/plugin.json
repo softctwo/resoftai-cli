@@ -1,0 +1,39 @@
+{
+  "name": "Python Code Formatter",
+  "slug": "python-code-formatter",
+  "version": "1.0.0",
+  "description": "Automatically format Python code using Black and isort",
+  "author": "ResoftAI",
+  "category": "code_quality",
+  "min_platform_version": "0.2.0",
+  "max_platform_version": null,
+  "dependencies": [],
+  "entry_point": "formatter_plugin.py:PythonFormatterPlugin",
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "black_line_length": {
+        "type": "integer",
+        "default": 100,
+        "description": "Maximum line length for Black formatter"
+      },
+      "use_isort": {
+        "type": "boolean",
+        "default": true,
+        "description": "Use isort for import sorting"
+      },
+      "isort_profile": {
+        "type": "string",
+        "enum": ["black", "django", "pycharm", "google"],
+        "default": "black",
+        "description": "isort profile to use"
+      }
+    }
+  },
+  "permissions": [
+    "files.read",
+    "files.write"
+  ],
+  "tags": ["python", "formatting", "black", "isort", "code-quality"],
+  "license": "MIT"
+}
