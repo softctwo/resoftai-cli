@@ -1,25 +1,134 @@
 """Real-time collaboration features for code editing."""
+import asyncio
 import logging
 from typing import Dict, List, Any
-from datetime import datetime
-import json
+from datetime import datetime, timedelta
+from collections import OrderedDict, defaultdict
+from time import time
 
 from resoftai.websocket.manager import sio, manager
 
 logger = logging.getLogger(__name__)
 
-# Track active editors per file
+
+class LRUDict(OrderedDict):
+    """
+    LRU (Least Recently Used) cache with max size.
+    Automatically removes oldest items when max size is exceeded.
+    """
+    def __init__(self, maxsize=1000):
+        self.maxsize = maxsize
+        super().__init__()
+
+    def __setitem__(self, key, value):
+        if key in self:
+            # Move to end
+            del self[key]
+        super().__setitem__(key, value)
+        if len(self) > self.maxsize:
+            # Remove oldest
+            self.popitem(last=False)
+
+    def __getitem__(self, key):
+        # Move to end on access
+        value = super().__getitem__(key)
+        del self[key]
+        super().__setitem__(key, value)
+        return value
+
+
+async def verify_file_access(file_id: int, user_id: int) -> bool:
+    """
+    Verify if user has access to the file.
+
+    Args:
+        file_id: File ID to check
+        user_id: User ID requesting access
+
+    Returns:
+        True if access granted, False otherwise
+    """
+    try:
+        from resoftai.db import get_async_session
+        from resoftai.crud.file import get_file
+        from resoftai.crud.project import get_project_by_id
+
+        async for db in get_async_session():
+            # Get file
+            file = await get_file(db, file_id)
+            if not file:
+                return False
+
+            # Get project
+            project = await get_project_by_id(db, file.project_id)
+            if not project:
+                return False
+
+            # Check ownership
+            if project.user_id == user_id:
+                return True
+
+            # TODO: Check collaborator permissions from project members table
+            # For now, only owner has access
+            return False
+
+    except Exception as e:
+        logger.error(f"Error verifying file access: {e}")
+        return False
+
+
+# Rate limit tracking
+_rate_limits: Dict[str, List[float]] = defaultdict(list)
+
+
+def check_rate_limit(
+    key: str,
+    max_requests: int = 10,
+    window: int = 1
+) -> bool:
+    """
+    Check if request exceeds rate limit.
+
+    Args:
+        key: Identifier (e.g., user_id or sid)
+        max_requests: Maximum requests allowed
+        window: Time window in seconds
+
+    Returns:
+        True if within limit, False if exceeded
+    """
+    now = time()
+
+    # Clean old timestamps
+    _rate_limits[key] = [
+        t for t in _rate_limits[key]
+        if now - t < window
+    ]
+
+    # Check limit
+    if len(_rate_limits[key]) >= max_requests:
+        return False
+
+    # Record request
+    _rate_limits[key].append(now)
+    return True
+
+
+# Track active editors per file using LRU cache
 # Structure: {file_id: {user_id: {sid, cursor_position, selection}}}
-active_editors: Dict[int, Dict[int, Dict[str, Any]]] = {}
+active_editors = LRUDict(maxsize=1000)  # Max 1000 active files
 
 # Track file change operations (Operational Transformation-like)
-file_operations: Dict[int, List[Dict[str, Any]]] = {}
+file_operations = LRUDict(maxsize=500)  # Max 500 file histories
+
+# Session tracking for fast cleanup
+sid_to_sessions: Dict[str, List[tuple]] = {}
 
 
 @sio.event
 async def join_file_editing(sid, data):
     """
-    Join a file editing session.
+    Join a file editing session with permission check.
 
     Expected data:
         {
@@ -40,6 +149,15 @@ async def join_file_editing(sid, data):
         }, room=sid)
         return
 
+    # SECURITY: Verify access permission
+    has_access = await verify_file_access(file_id, user_id)
+    if not has_access:
+        await sio.emit('error', {
+            'message': 'Permission denied - you do not have access to this file'
+        }, room=sid)
+        logger.warning(f"User {user_id} attempted unauthorized access to file {file_id}")
+        return
+
     # Track active editor
     if file_id not in active_editors:
         active_editors[file_id] = {}
@@ -51,6 +169,11 @@ async def join_file_editing(sid, data):
         'selection': None,
         'joined_at': datetime.utcnow().isoformat()
     }
+
+    # Track session for fast cleanup on disconnect
+    if sid not in sid_to_sessions:
+        sid_to_sessions[sid] = []
+    sid_to_sessions[sid].append((file_id, user_id))
 
     # Join file room
     room = f"file:{file_id}"
@@ -126,7 +249,7 @@ async def leave_file_editing(sid, data):
 @sio.event
 async def file_content_change(sid, data):
     """
-    Handle file content changes and broadcast to other editors.
+    Handle file content changes and broadcast to other editors with rate limiting.
 
     Expected data:
         {
@@ -143,6 +266,13 @@ async def file_content_change(sid, data):
             "version": 42  # file version for conflict resolution
         }
     """
+    # Rate limit: 10 changes per second
+    if not check_rate_limit(sid, max_requests=10, window=1):
+        await sio.emit('error', {
+            'message': 'Rate limit exceeded - too many requests'
+        }, room=sid)
+        return
+
     file_id = data.get('file_id')
     user_id = data.get('user_id')
     changes = data.get('changes', [])
@@ -183,7 +313,7 @@ async def file_content_change(sid, data):
 @sio.event
 async def cursor_position_change(sid, data):
     """
-    Update cursor position for an editor.
+    Update cursor position for an editor with rate limiting.
 
     Expected data:
         {
@@ -196,6 +326,11 @@ async def cursor_position_change(sid, data):
             }  # optional
         }
     """
+    # Rate limit: 30 requests per second
+    if not check_rate_limit(sid, max_requests=30, window=1):
+        # Silently drop - too many cursor updates
+        return
+
     file_id = data.get('file_id')
     user_id = data.get('user_id')
     position = data.get('position')
@@ -332,3 +467,92 @@ async def get_file_operations(file_id: int, since_version: int = None) -> List[D
         operations = [op for op in operations if op['version'] > since_version]
 
     return operations
+
+
+async def cleanup_inactive_sessions():
+    """
+    Background task to clean up inactive editing sessions.
+
+    Runs every hour to remove sessions inactive for > 1 hour.
+    """
+    while True:
+        try:
+            await asyncio.sleep(3600)  # Every hour
+
+            now = datetime.utcnow()
+            cleaned_files = 0
+            cleaned_users = 0
+
+            for file_id in list(active_editors.keys()):
+                for user_id in list(active_editors[file_id].keys()):
+                    try:
+                        joined_at_str = active_editors[file_id][user_id].get('joined_at')
+                        if not joined_at_str:
+                            continue
+
+                        joined_at = datetime.fromisoformat(joined_at_str)
+                        inactive_duration = now - joined_at
+
+                        # Clean up if inactive for > 1 hour
+                        if inactive_duration > timedelta(hours=1):
+                            del active_editors[file_id][user_id]
+                            cleaned_users += 1
+
+                    except Exception as e:
+                        logger.warning(f"Error cleaning user session: {e}")
+                        continue
+
+                # Clean empty file entries
+                if file_id in active_editors and not active_editors[file_id]:
+                    del active_editors[file_id]
+                    cleaned_files += 1
+
+            if cleaned_files > 0 or cleaned_users > 0:
+                logger.info(
+                    f"Cleaned up {cleaned_users} inactive users from {cleaned_files} files"
+                )
+
+        except Exception as e:
+            logger.error(f"Error in cleanup task: {e}", exc_info=True)
+
+
+@sio.event
+async def disconnect(sid):
+    """
+    Handle client disconnection with optimized cleanup.
+    """
+    logger.info(f"Client disconnected: {sid}")
+
+    # Fast lookup using sid_to_sessions
+    if sid in sid_to_sessions:
+        for file_id, user_id in sid_to_sessions[sid]:
+            try:
+                if file_id in active_editors and user_id in active_editors[file_id]:
+                    username = active_editors[file_id][user_id].get('username', 'Unknown')
+                    del active_editors[file_id][user_id]
+
+                    # Clean empty file entries
+                    if not active_editors[file_id]:
+                        del active_editors[file_id]
+
+                    # Notify other users
+                    room = f"file:{file_id}"
+                    await sio.emit('user_left_file', {
+                        'file_id': file_id,
+                        'user_id': user_id,
+                        'username': username,
+                        'active_users': len(active_editors.get(file_id, {}))
+                    }, room=room)
+
+            except Exception as e:
+                logger.warning(f"Error cleaning session for file {file_id}: {e}")
+
+        del sid_to_sessions[sid]
+
+
+# Start cleanup task
+try:
+    cleanup_task = asyncio.create_task(cleanup_inactive_sessions())
+    logger.info("Started inactive session cleanup task")
+except Exception as e:
+    logger.warning(f"Could not start cleanup task: {e}")

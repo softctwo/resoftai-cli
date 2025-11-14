@@ -1,6 +1,8 @@
 """API routes for code analysis (pylint, mypy, eslint)."""
 import asyncio
 import json
+import logging
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -15,12 +17,60 @@ from resoftai.auth.dependencies import get_current_active_user
 from resoftai.models.user import User
 
 router = APIRouter(prefix="/code-analysis", tags=["code-analysis"])
+logger = logging.getLogger(__name__)
+
+# Security configurations
+ANALYSIS_TIMEOUT = 30  # seconds
+MAX_CODE_SIZE = 100_000  # characters
+_analysis_semaphore = asyncio.Semaphore(5)  # Max 5 concurrent analyses
+
+
+def sanitize_filename(filename: str, max_length: int = 100) -> str:
+    """
+    Sanitize filename to prevent path traversal and injection.
+
+    Args:
+        filename: Original filename from user
+        max_length: Maximum allowed filename length
+
+    Returns:
+        Safe filename containing only alphanumeric, dash, underscore, and dot
+
+    Example:
+        >>> sanitize_filename("../../etc/passwd")
+        'etc_passwd'
+        >>> sanitize_filename("test<script>.py")
+        'test_script_.py'
+    """
+    # Remove path components
+    filename = Path(filename).name
+
+    # Remove dangerous characters
+    filename = re.sub(r'[^\w\-.]', '_', filename)
+
+    # Remove consecutive dots (to prevent ..)
+    filename = re.sub(r'\.{2,}', '.', filename)
+
+    # Ensure it doesn't start with dot
+    filename = filename.lstrip('.')
+
+    # Limit length
+    if len(filename) > max_length:
+        name, ext = filename.rsplit('.', 1) if '.' in filename else (filename, '')
+        filename = name[:max_length - len(ext) - 1] + '.' + ext if ext else name[:max_length]
+
+    # Default if empty
+    return filename or 'temp'
 
 
 # Request/Response Models
 class CodeAnalysisRequest(BaseModel):
     """Request for code analysis."""
-    code: str = Field(..., description="Code content to analyze")
+    code: str = Field(
+        ...,
+        description="Code content to analyze",
+        max_length=MAX_CODE_SIZE
+    )
     language: str = Field(..., description="Programming language (python, javascript, typescript)")
     filename: str = Field(default="temp", description="Filename for context")
     tools: List[str] = Field(default=["all"], description="Analysis tools to run (pylint, mypy, eslint, or all)")
@@ -47,14 +97,16 @@ class CodeAnalysisResponse(BaseModel):
 
 
 async def run_pylint(code: str, filename: str) -> Dict:
-    """Run pylint analysis on Python code."""
+    """Run pylint analysis on Python code with timeout protection."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        temp_file = Path(tmpdir) / f"{filename}.py"
+        # Sanitize filename to prevent path traversal
+        safe_filename = sanitize_filename(filename)
+        temp_file = Path(tmpdir) / f"{safe_filename}.py"
         temp_file.write_text(code, encoding='utf-8')
 
         try:
             # Run pylint with JSON output
-            result = await asyncio.create_subprocess_exec(
+            process = await asyncio.create_subprocess_exec(
                 'pylint',
                 str(temp_file),
                 '--output-format=json',
@@ -63,7 +115,23 @@ async def run_pylint(code: str, filename: str) -> Dict:
                 stderr=asyncio.subprocess.PIPE
             )
 
-            stdout, stderr = await result.communicate()
+            # Wait with timeout protection
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=ANALYSIS_TIMEOUT
+                )
+            except asyncio.TimeoutError:
+                # Kill the process
+                try:
+                    process.kill()
+                    await process.wait()
+                except Exception:
+                    pass
+                raise HTTPException(
+                    status_code=408,
+                    detail=f"Analysis timeout after {ANALYSIS_TIMEOUT} seconds"
+                )
 
             issues = []
             score = None
@@ -100,31 +168,28 @@ async def run_pylint(code: str, filename: str) -> Dict:
             }
 
         except FileNotFoundError:
-            raise HTTPException(status_code=500, detail="pylint not installed")
+            raise HTTPException(status_code=500, detail="Analysis tool not available")
+        except HTTPException:
+            raise
         except Exception as e:
-            return {
-                'success': False,
-                'issues': [AnalysisIssue(
-                    line=None,
-                    column=None,
-                    severity='error',
-                    message=f"Pylint execution error: {str(e)}",
-                    rule=None,
-                    tool='pylint'
-                )],
-                'score': None
-            }
+            logger.error(f"Pylint execution error: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail="Analysis failed due to internal error"
+            )
 
 
 async def run_mypy(code: str, filename: str) -> Dict:
-    """Run mypy type checking on Python code."""
+    """Run mypy type checking on Python code with timeout protection."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        temp_file = Path(tmpdir) / f"{filename}.py"
+        # Sanitize filename to prevent path traversal
+        safe_filename = sanitize_filename(filename)
+        temp_file = Path(tmpdir) / f"{safe_filename}.py"
         temp_file.write_text(code, encoding='utf-8')
 
         try:
             # Run mypy with JSON output
-            result = await asyncio.create_subprocess_exec(
+            process = await asyncio.create_subprocess_exec(
                 'mypy',
                 str(temp_file),
                 '--config-file=mypy.ini',
@@ -135,7 +200,23 @@ async def run_mypy(code: str, filename: str) -> Dict:
                 stderr=asyncio.subprocess.PIPE
             )
 
-            stdout, stderr = await result.communicate()
+            # Wait with timeout protection
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=ANALYSIS_TIMEOUT
+                )
+            except asyncio.TimeoutError:
+                # Kill the process
+                try:
+                    process.kill()
+                    await process.wait()
+                except Exception:
+                    pass
+                raise HTTPException(
+                    status_code=408,
+                    detail=f"Analysis timeout after {ANALYSIS_TIMEOUT} seconds"
+                )
 
             issues = []
 
@@ -181,36 +262,35 @@ async def run_mypy(code: str, filename: str) -> Dict:
             }
 
         except FileNotFoundError:
-            raise HTTPException(status_code=500, detail="mypy not installed")
+            raise HTTPException(status_code=500, detail="Analysis tool not available")
+        except HTTPException:
+            raise
         except Exception as e:
-            return {
-                'success': False,
-                'issues': [AnalysisIssue(
-                    line=None,
-                    column=None,
-                    severity='error',
-                    message=f"Mypy execution error: {str(e)}",
-                    rule=None,
-                    tool='mypy'
-                )]
-            }
+            logger.error(f"Mypy execution error: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail="Analysis failed due to internal error"
+            )
 
 
 async def run_eslint(code: str, filename: str) -> Dict:
-    """Run eslint analysis on JavaScript/TypeScript code."""
+    """Run eslint analysis on JavaScript/TypeScript code with timeout protection."""
     with tempfile.TemporaryDirectory() as tmpdir:
+        # Sanitize filename to prevent path traversal
+        safe_filename = sanitize_filename(filename)
+
         ext = '.js'
-        if 'typescript' in filename.lower() or filename.endswith('.ts'):
+        if 'typescript' in safe_filename.lower() or safe_filename.endswith('.ts'):
             ext = '.ts'
-        elif filename.endswith('.vue'):
+        elif safe_filename.endswith('.vue'):
             ext = '.vue'
 
-        temp_file = Path(tmpdir) / f"{filename}{ext}"
+        temp_file = Path(tmpdir) / f"{safe_filename}{ext}"
         temp_file.write_text(code, encoding='utf-8')
 
         try:
             # Run eslint with JSON output
-            result = await asyncio.create_subprocess_exec(
+            process = await asyncio.create_subprocess_exec(
                 'npx',
                 'eslint',
                 str(temp_file),
@@ -221,7 +301,23 @@ async def run_eslint(code: str, filename: str) -> Dict:
                 cwd='/home/user/resoftai-cli'
             )
 
-            stdout, stderr = await result.communicate()
+            # Wait with timeout protection
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=ANALYSIS_TIMEOUT
+                )
+            except asyncio.TimeoutError:
+                # Kill the process
+                try:
+                    process.kill()
+                    await process.wait()
+                except Exception:
+                    pass
+                raise HTTPException(
+                    status_code=408,
+                    detail=f"Analysis timeout after {ANALYSIS_TIMEOUT} seconds"
+                )
 
             issues = []
 
@@ -252,19 +348,15 @@ async def run_eslint(code: str, filename: str) -> Dict:
             }
 
         except FileNotFoundError:
-            raise HTTPException(status_code=500, detail="eslint not installed")
+            raise HTTPException(status_code=500, detail="Analysis tool not available")
+        except HTTPException:
+            raise
         except Exception as e:
-            return {
-                'success': False,
-                'issues': [AnalysisIssue(
-                    line=None,
-                    column=None,
-                    severity='error',
-                    message=f"ESLint execution error: {str(e)}",
-                    rule=None,
-                    tool='eslint'
-                )]
-            }
+            logger.error(f"ESLint execution error: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail="Analysis failed due to internal error"
+            )
 
 
 @router.post("/analyze", response_model=CodeAnalysisResponse)
@@ -274,72 +366,75 @@ async def analyze_code(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Analyze code using static analysis tools.
+    Analyze code using static analysis tools with rate limiting and resource control.
 
     Supports:
     - Python: pylint, mypy
     - JavaScript/TypeScript: eslint
     """
     import time
-    start_time = time.time()
 
-    all_issues = []
-    score = None
+    # Use semaphore for global concurrency control
+    async with _analysis_semaphore:
+        start_time = time.time()
 
-    # Determine which tools to run
-    tools = request.tools
-    if "all" in tools:
+        all_issues = []
+        score = None
+
+        # Determine which tools to run
+        tools = request.tools
+        if "all" in tools:
+            if request.language.lower() == "python":
+                tools = ["pylint", "mypy"]
+            elif request.language.lower() in ["javascript", "typescript"]:
+                tools = ["eslint"]
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported language: {request.language}"
+                )
+
+        # Run Python analysis
         if request.language.lower() == "python":
-            tools = ["pylint", "mypy"]
+            if "pylint" in tools:
+                result = await run_pylint(request.code, request.filename)
+                all_issues.extend(result['issues'])
+                if result.get('score') is not None:
+                    score = result['score']
+
+            if "mypy" in tools:
+                result = await run_mypy(request.code, request.filename)
+                all_issues.extend(result['issues'])
+
+        # Run JavaScript/TypeScript analysis
         elif request.language.lower() in ["javascript", "typescript"]:
-            tools = ["eslint"]
+            if "eslint" in tools:
+                result = await run_eslint(request.code, request.filename)
+                all_issues.extend(result['issues'])
+
         else:
             raise HTTPException(
                 status_code=400,
                 detail=f"Unsupported language: {request.language}"
             )
 
-    # Run Python analysis
-    if request.language.lower() == "python":
-        if "pylint" in tools:
-            result = await run_pylint(request.code, request.filename)
-            all_issues.extend(result['issues'])
-            if result.get('score') is not None:
-                score = result['score']
+        # Calculate summary
+        summary = {
+            'error': sum(1 for issue in all_issues if issue.severity == 'error'),
+            'warning': sum(1 for issue in all_issues if issue.severity == 'warning'),
+            'info': sum(1 for issue in all_issues if issue.severity == 'info')
+        }
 
-        if "mypy" in tools:
-            result = await run_mypy(request.code, request.filename)
-            all_issues.extend(result['issues'])
+        execution_time = time.time() - start_time
 
-    # Run JavaScript/TypeScript analysis
-    elif request.language.lower() in ["javascript", "typescript"]:
-        if "eslint" in tools:
-            result = await run_eslint(request.code, request.filename)
-            all_issues.extend(result['issues'])
-
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported language: {request.language}"
+        return CodeAnalysisResponse(
+            success=True,
+            language=request.language,
+            issues=all_issues,
+            summary=summary,
+            score=score,
+            execution_time=execution_time
         )
-
-    # Calculate summary
-    summary = {
-        'error': sum(1 for issue in all_issues if issue.severity == 'error'),
-        'warning': sum(1 for issue in all_issues if issue.severity == 'warning'),
-        'info': sum(1 for issue in all_issues if issue.severity == 'info')
-    }
-
-    execution_time = time.time() - start_time
-
-    return CodeAnalysisResponse(
-        success=True,
-        language=request.language,
-        issues=all_issues,
-        summary=summary,
-        score=score,
-        execution_time=execution_time
-    )
 
 
 @router.get("/tools")
