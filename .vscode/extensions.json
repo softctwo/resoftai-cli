@@ -1,0 +1,43 @@
+{
+    "recommendations": [
+        // Python开发
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        "ms-python.debugpy",
+        "charliermarsh.ruff",
+
+        // Docker
+        "ms-azuretools.vscode-docker",
+
+        // API开发
+        "humao.rest-client",
+        "42crunch.vscode-openapi",
+
+        // 数据库
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+
+        // Git
+        "eamodio.gitlens",
+        "donjayamanne.githistory",
+
+        // 代码质量
+        "streetsidesoftware.code-spell-checker",
+        "usernamehw.errorlens",
+
+        // 文档
+        "yzhang.markdown-all-in-one",
+        "bierner.markdown-mermaid",
+
+        // 效率工具
+        "esbenp.prettier-vscode",
+        "editorconfig.editorconfig",
+        "gruntfuggly.todo-tree",
+        "wayou.vscode-todo-highlight",
+
+        // 其他有用工具
+        "tamasfe.even-better-toml",
+        "redhat.vscode-yaml"
+    ]
+}
