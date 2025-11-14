@@ -41,7 +41,9 @@ class Project(Base):
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
     files = relationship("File", back_populates="project", cascade="all, delete-orphan")
     logs = relationship("Log", back_populates="project", cascade="all, delete-orphan")
-    workflow_metrics = relationship("WorkflowMetrics", back_populates="project", cascade="all, delete-orphan")
+    code_reviews = relationship("CodeReview", back_populates="project", cascade="all, delete-orphan")
+    predictive_analyses = relationship("PredictiveAnalysis", back_populates="project", cascade="all, delete-orphan")
+    multi_model_executions = relationship("MultiModelExecution", back_populates="project", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Project(id={self.id}, name='{self.name}', status='{self.status}', progress={self.progress}%)>"
