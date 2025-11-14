@@ -66,3 +66,30 @@ temp/
 # Coverage reports
 coverage.xml
 .coverage.*
+
+# Docker
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile*
+.dockerignore
+
+# CI/CD artifacts
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Tests
+tests/
+test_*.py
+*_test.py
+
+# Workspace (generated content)
+workspace/
+
+# Additional documentation
+TESTING.md
+DEVELOPMENT_PROGRESS.md
+SESSION_SUMMARY.md
+KNOWN_ISSUES.md
+DEEPSEEK_*.md
+*_SETUP.md
