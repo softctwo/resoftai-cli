@@ -12,11 +12,11 @@
 
 ## 📋 项目简介
 
-ResoftAI 是一个创新的多智能体协作平台，专为软件定制开发服务而设计。平台集成了7个专业AI智能体，模拟真实软件开发团队的协作模式，能够自动化完成从需求收集到最终交付的整个软件开发生命周期。
+ResoftAI 是一个创新的多智能体协作平台，专为软件定制开发服务而设计。平台集成了10个专业AI智能体，模拟真实软件开发团队的协作模式，能够自动化完成从需求收集到最终交付的整个软件开发生命周期。
 
 ### 核心特性
 
-- **🤖 7个专业AI智能体**
+- **🤖 10个专业AI智能体**
   - 项目经理 (Project Manager)
   - 需求分析师 (Requirements Analyst)
   - 软件架构师 (Software Architect)
@@ -24,6 +24,9 @@ ResoftAI 是一个创新的多智能体协作平台，专为软件定制开发�
   - 开发工程师 (Developer) - **增强版，支持代码质量检查**
   - 测试工程师 (Test Engineer)
   - 质量专家 (Quality Expert)
+  - **DevOps工程师 (DevOps Engineer)** 🆕 - CI/CD、基础设施、容器化、监控
+  - **安全专家 (Security Expert)** 🆕 - 安全审计、漏洞扫描、合规性检查
+  - **性能工程师 (Performance Engineer)** 🆕 - 性能分析、负载测试、优化建议
 
 - **📊 完整的工作流引擎**
   - 7阶段工作流编排器
@@ -104,7 +107,10 @@ resoftai-cli/
 │   │   ├── uxui_designer.py
 │   │   ├── developer.py
 │   │   ├── test_engineer.py
-│   │   └── quality_expert.py
+│   │   ├── quality_expert.py
+│   │   ├── devops_engineer.py    # 🆕 DevOps工程师
+│   │   ├── security_expert.py    # 🆕 安全专家
+│   │   └── performance_engineer.py  # 🆕 性能工程师
 │   ├── orchestration/          # 工作流编排
 │   │   ├── workflow.py         # 工作流编排器
 │   │   └── executor.py         # 项目执行器
@@ -492,23 +498,17 @@ python tests/test_api_integration.py
 
 ### 测试统计
 
-- ✅ 单元测试: 220+ 测试通过
-- ✅ **测试覆盖率: 43%** (从 41% 提升 +2%)
-  - 配置模块: 98%
-  - 认证安全: 98%
-  - 数据库连接: 88%
+- ✅ 单元测试: **71个通过** (核心 + 代码质量 + 模板API + 增强智能体)
+- ✅ 测试覆盖率: **24%**
+  - 增强智能体: 87-89%
+  - 模板系统: 91-100%
   - 代码质量模块: 88%
   - 消息总线: 100%
   - 状态管理: 100%
 - ✅ API集成测试: 10/10 (100%通过率)
 - ✅ API端点: **32个**全部可用
 - ✅ 数据库表: 8个创建成功
-- ✅ CI/CD: GitHub Actions 自动化测试流水线
-
-**新增测试文件:**
-- `tests/test_config.py` - 配置设置测试 (14个测试)
-- `tests/test_auth_security.py` - 认证安全测试 (16个测试)
-- `tests/test_db_connection.py` - 数据库连接测试 (10个测试)
+- ✅ 智能体: **10个**专业AI智能体
 
 详见 [TESTING.md](TESTING.md) 获取完整的测试文档。
 
