@@ -1,0 +1,13 @@
+{
+  "name": "Slack Integration",
+  "slug": "slack-integration",
+  "version": "1.0.0",
+  "description": "Send notifications to Slack channels for project events",
+  "author": "ResoftAI Team",
+  "category": "integration",
+  "tags": ["slack", "notifications", "collaboration"],
+  "min_platform_version": "0.2.0",
+  "dependencies": [],
+  "entry_point": "main.py:SlackIntegrationPlugin",
+  "license": "MIT"
+}

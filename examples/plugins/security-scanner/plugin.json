@@ -1,0 +1,17 @@
+{
+  "name": "Security Scanner",
+  "slug": "security-scanner",
+  "version": "1.0.0",
+  "description": "Scans code for common security vulnerabilities",
+  "long_description": "A comprehensive security scanner that identifies common vulnerabilities including SQL injection, XSS, hardcoded secrets, and more. Integrates seamlessly with the ResoftAI code quality pipeline.",
+  "author": "ResoftAI Team",
+  "category": "code_quality",
+  "tags": ["security", "vulnerability", "scanning", "code-quality"],
+  "min_platform_version": "0.2.0",
+  "dependencies": [],
+  "entry_point": "main.py:SecurityScannerPlugin",
+  "license": "MIT",
+  "homepage": "https://github.com/resoftai/plugin-security-scanner",
+  "repository": "https://github.com/resoftai/plugin-security-scanner",
+  "documentation": "https://docs.resoftai.com/plugins/security-scanner"
+}

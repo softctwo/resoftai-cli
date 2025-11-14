@@ -13,15 +13,24 @@ settings = Settings()
 DATABASE_URL = settings.database_url if hasattr(settings, 'database_url') else \
     "postgresql+asyncpg://postgres:postgres@localhost:5432/resoftai"
 
-# Create async engine
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=True,  # Set to False in production
-    future=True,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
-)
+# Create async engine with conditional pooling for SQLite vs PostgreSQL
+if DATABASE_URL.startswith("sqlite"):
+    # SQLite doesn't support pooling
+    engine = create_async_engine(
+        DATABASE_URL,
+        echo=True,  # Set to False in production
+        future=True,
+    )
+else:
+    # PostgreSQL supports pooling
+    engine = create_async_engine(
+        DATABASE_URL,
+        echo=True,  # Set to False in production
+        future=True,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+    )
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(
