@@ -124,40 +124,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { adminApi } from '@/api/admin'
+import { adminApi } from '@/api/marketplace/admin'
 import PageHeader from '@/components/PageHeader.vue'
 import ReviewQueue from './components/ReviewQueue.vue'
 import RecentlyReviewed from './components/RecentlyReviewed.vue'
 import ApproveDialog from './components/ApproveDialog.vue'
 import RejectDialog from './components/RejectDialog.vue'
+import type { ReviewItem, ReviewStats } from '@/types/api'
 
-interface ReviewItem {
-  id: number
-  name: string
-  slug: string
-  category: string
-  version: string
-  description: string
-  author_id: number
-  author_name: string
-  status: string
-  package_url?: string
-  source_url?: string
-  submitted_at: string
-  license?: string
-}
-
-interface Stats {
-  pending_plugins: number
-  pending_templates: number
-  approved_plugins: number
-  approved_templates: number
-  rejected_plugins: number
-  rejected_templates: number
-  total_contributors: number
-  total_downloads: number
-  total_installs: number
-}
+type Stats = ReviewStats
 
 const activeTab = ref('plugins')
 const stats = ref<Stats>({

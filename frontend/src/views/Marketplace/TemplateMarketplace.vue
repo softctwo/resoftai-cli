@@ -99,29 +99,12 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { templateApi } from '@/api/templates'
+import { templateApi } from '@/api/marketplace/templates'
 import PageHeader from '@/components/PageHeader.vue'
 import TemplateCard from './components/TemplateCard.vue'
 import TemplateDetailDialog from './components/TemplateDetailDialog.vue'
 import PublishTemplateDialog from './components/PublishTemplateDialog.vue'
-
-interface Template {
-  id: number
-  name: string
-  slug: string
-  category: string
-  version: string
-  description: string
-  author_name: string
-  is_official: boolean
-  is_featured: boolean
-  downloads_count: number
-  installs_count: number
-  rating_average: number
-  rating_count: number
-  tags: string[]
-  created_at: string
-}
+import type { Template } from '@/types/api'
 
 const loading = ref(false)
 const loadingMore = ref(false)

@@ -233,24 +233,16 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { analyticsApi } from '@/api/analytics'
+import { analyticsApi } from '@/api/marketplace/analytics'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
 import LineChart from '@/components/Charts/LineChart.vue'
 import PieChart from '@/components/Charts/PieChart.vue'
 import BarChart from '@/components/Charts/BarChart.vue'
 import { formatNumber, formatDate } from '@/utils/format'
+import type { OverviewStats } from '@/types/api'
 
-interface Stats {
-  total_downloads: number
-  downloads_trend: number
-  total_installs: number
-  installs_trend: number
-  active_contributors: number
-  contributors_trend: number
-  average_rating: number
-  rating_trend: number
-}
+type Stats = OverviewStats
 
 const dateRange = ref<[Date, Date]>([
   new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
