@@ -98,7 +98,7 @@
           已连接
         </el-tag>
         <el-tag v-else type="info" size="small" effect="dark">
-          <el-icon><Disconnection /></el-icon>
+          <el-icon><CloseBold /></el-icon>
           未连接
         </el-tag>
       </div>
@@ -114,7 +114,7 @@ import {
   Search,
   Loading,
   Connection,
-  Disconnection
+  CloseBold
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
