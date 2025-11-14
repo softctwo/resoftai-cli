@@ -2,6 +2,12 @@
 import socketio
 import logging
 from typing import Dict, Set, Any
+from resoftai.utils.performance import (
+    timing_decorator,
+    websocket_metrics,
+    performance_monitor,
+    message_batcher
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +31,7 @@ class ConnectionManager:
         self.session_user_info: Dict[str, Dict[str, Any]] = {}  # sid -> {user_id, username}
         self.file_versions: Dict[int, int] = {}  # file_id -> current_version
 
+    @timing_decorator("manager.connect")
     async def connect(self, sid: str, project_id: str, user_id: int = None):
         """
         Add connection to project room.
@@ -46,8 +53,12 @@ class ConnectionManager:
                 self.user_connections[user_id] = set()
             self.user_connections[user_id].add(sid)
 
+        # Track metrics
+        websocket_metrics.connection_opened()
+
         logger.info(f"Client {sid} connected to project {project_id}")
 
+    @timing_decorator("manager.disconnect")
     async def disconnect(self, sid: str):
         """
         Remove connection from all rooms.
@@ -70,8 +81,12 @@ class ConnectionManager:
                 if not sids:
                     del self.user_connections[user_id]
 
+        # Track metrics
+        websocket_metrics.connection_closed()
+
         logger.info(f"Client {sid} disconnected")
 
+    @timing_decorator("manager.broadcast_to_project")
     async def broadcast_to_project(self, project_id: int, event: str, data: Any):
         """
         Broadcast message to all clients in a project room.
@@ -81,8 +96,14 @@ class ConnectionManager:
             event: Event name
             data: Event data
         """
+        import json
         room = f"project:{project_id}"
         await sio.emit(event, data, room=room)
+
+        # Track message metrics
+        message_size = len(json.dumps(data).encode('utf-8'))
+        websocket_metrics.message_sent(message_size)
+
         logger.debug(f"Broadcasted {event} to project {project_id}")
 
     async def broadcast_to_user(self, user_id: int, event: str, data: Any):
@@ -194,6 +215,7 @@ class ConnectionManager:
         """Get current file version."""
         return self.file_versions.get(file_id, 0)
 
+    @timing_decorator("manager.broadcast_to_file")
     async def broadcast_to_file(self, file_id: int, event: str, data: Any, exclude_sid: str = None):
         """
         Broadcast message to all users editing a file.
@@ -204,15 +226,21 @@ class ConnectionManager:
             data: Event data
             exclude_sid: Optional session ID to exclude from broadcast
         """
+        import json
         room = f"file:{file_id}"
+        message_size = len(json.dumps(data).encode('utf-8'))
+
         if exclude_sid:
             # Send to all in room except the sender
             if file_id in self.file_sessions:
                 for sid in self.file_sessions[file_id].keys():
                     if sid != exclude_sid:
                         await sio.emit(event, data, room=sid)
+                        websocket_metrics.message_sent(message_size)
         else:
             await sio.emit(event, data, room=room)
+            websocket_metrics.message_sent(message_size)
+
         logger.debug(f"Broadcasted {event} to file {file_id}")
 
 
