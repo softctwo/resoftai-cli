@@ -154,6 +154,14 @@ API requests are rate-limited based on your subscription tier:
         {
             "name": "templates",
             "description": "Project templates"
+        },
+        {
+            "name": "monitoring",
+            "description": "Performance monitoring and analytics"
+        },
+        {
+            "name": "marketplace",
+            "description": "Plugin marketplace - discover, install, and manage plugins"
         }
     ]
 )
@@ -175,14 +183,9 @@ app.include_router(files.router, prefix="/api")
 app.include_router(llm_configs.router, prefix="/api")
 app.include_router(execution.router, prefix="/api")
 app.include_router(templates.router, prefix="/api/v1")
-app.include_router(code_analysis.router, prefix="/api")
-
-# Enterprise Edition routers
-app.include_router(organizations.router, prefix="/api")
-app.include_router(teams.router, prefix="/api")
-
-# Plugin system routers
-app.include_router(plugins.router, prefix="/api")
+app.include_router(performance.router, prefix="/api")
+app.include_router(monitoring.router, prefix="/api")
+app.include_router(marketplace.router, prefix="/api")
 
 # AI capabilities routers
 app.include_router(ai_capabilities.router, prefix="/api")

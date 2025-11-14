@@ -35,7 +35,7 @@ const routes = [
       {
         path: 'files',
         name: 'Files',
-        component: () => import('@/views/Files.vue'),
+        component: () => import('@/views/FilesEnhanced.vue'),
         meta: { title: '文件管理', icon: 'Files' }
       },
       {
@@ -55,6 +55,24 @@ const routes = [
         name: 'Templates',
         component: () => import('@/views/TemplateMarketplace.vue'),
         meta: { title: '模板市场', icon: 'Box' }
+      },
+      {
+        path: 'performance',
+        name: 'Performance',
+        component: () => import('@/views/PerformanceMonitor.vue'),
+        meta: { title: '性能监控', icon: 'Odometer' }
+      },
+      {
+        path: 'organizations',
+        name: 'Organizations',
+        component: () => import('@/views/OrganizationManagement.vue'),
+        meta: { title: '组织管理', icon: 'OfficeBuilding' }
+      },
+      {
+        path: 'teams',
+        name: 'Teams',
+        component: () => import('@/views/TeamManagement.vue'),
+        meta: { title: '团队管理', icon: 'PictureFilled' }
       },
     ]
   },
