@@ -5,69 +5,122 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: resoftai-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: resoftai
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${DB_NAME:-resoftai}
+      POSTGRES_USER: ${DB_USER:-resoftai}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-resoftai123}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-resoftai}"]
+      interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - resoftai-network
 
-  # Backend API (Optional - uncomment if you want to run in Docker)
-  # backend:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.backend
-  #   container_name: resoftai-backend
-  #   environment:
-  #     - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/resoftai
-  #     - LLM_PROVIDER=deepseek
-  #     - LLM_API_KEY=${LLM_API_KEY}
-  #     - LLM_MODEL=deepseek-chat
-  #     - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}
-  #     - API_HOST=0.0.0.0
-  #     - API_PORT=8000
-  #   ports:
-  #     - "8000:8000"
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   volumes:
-  #     - ./src:/app/src
-  #     - ./workspace:/app/workspace
-  #   networks:
-  #     - resoftai-network
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: resoftai-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - resoftai-network
 
-  # Frontend (Optional - uncomment if you want to run in Docker)
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: resoftai-frontend
-  #   environment:
-  #     - VITE_API_BASE_URL=http://localhost:8000/api
-  #     - VITE_SOCKET_URL=http://localhost:8000
-  #   ports:
-  #     - "5173:5173"
-  #   depends_on:
-  #     - backend
-  #   volumes:
-  #     - ./frontend/src:/app/src
-  #   networks:
-  #     - resoftai-network
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: resoftai-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-resoftai}:${DB_PASSWORD:-resoftai123}@postgres:5432/${DB_NAME:-resoftai}
 
-volumes:
-  postgres_data:
-    driver: local
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
+
+      # JWT
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: 7
+
+      # LLM Providers
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+      # Application
+      PYTHONPATH: /app/src
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+
+      # Database initialization
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
+      INIT_DB: ${INIT_DB:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src:ro
+      - ./alembic:/app/alembic:ro
+      - backend_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - resoftai-network
+
+  # Frontend (Development mode with hot reload)
+  frontend:
+    image: node:18-alpine
+    container_name: resoftai-frontend
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - resoftai-network
 
 networks:
   resoftai-network:
     driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_logs:
+    driver: local
+  frontend_node_modules:
+    driver: local
