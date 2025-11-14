@@ -33,6 +33,14 @@
           <el-icon><Setting /></el-icon>
           <span>模型配置</span>
         </el-menu-item>
+        <el-menu-item index="/code-quality">
+          <el-icon><DocumentChecked /></el-icon>
+          <span>代码质量检查</span>
+        </el-menu-item>
+        <el-menu-item index="/templates">
+          <el-icon><Box /></el-icon>
+          <span>模板市场</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
 

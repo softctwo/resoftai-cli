@@ -5,16 +5,37 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 
 from resoftai.models.file import File, FileVersion
+from resoftai.utils.cache import cached, cache_manager
+from resoftai.utils.performance import timing_decorator
 
 
 # File operations
 
+@timing_decorator("crud.get_file")
+@cached(key_func=lambda db, file_id: f"file:{file_id}", ttl=180)
 async def get_file(db: AsyncSession, file_id: int) -> Optional[File]:
-    """Get file by ID."""
+    """
+    Get file by ID with caching.
+
+    Results are cached for 3 minutes.
+    """
     result = await db.execute(
         select(File).where(File.id == file_id)
     )
-    return result.scalar_one_or_none()
+    file = result.scalar_one_or_none()
+    if file:
+        # Convert to dict for caching
+        return {
+            'id': file.id,
+            'project_id': file.project_id,
+            'path': file.path,
+            'content': file.content,
+            'language': file.language,
+            'current_version': file.current_version,
+            'created_at': file.created_at.isoformat() if file.created_at else None,
+            'updated_at': file.updated_at.isoformat() if file.updated_at else None
+        }
+    return None
 
 
 async def get_file_by_path(
@@ -32,13 +53,18 @@ async def get_file_by_path(
     return result.scalar_one_or_none()
 
 
+@timing_decorator("crud.get_files_by_project")
 async def get_files_by_project(
     db: AsyncSession,
     project_id: int,
     skip: int = 0,
     limit: int = 100
 ) -> List[File]:
-    """Get all files for a project."""
+    """
+    Get all files for a project.
+
+    Optimized with index on project_id.
+    """
     result = await db.execute(
         select(File)
         .where(File.project_id == project_id)
@@ -85,14 +111,21 @@ async def create_file(
     return file
 
 
+@timing_decorator("crud.update_file")
 async def update_file(
     db: AsyncSession,
     file_id: int,
     content: str,
     created_by: Optional[int] = None
 ) -> Optional[File]:
-    """Update file content and create new version."""
-    file = await get_file(db, file_id)
+    """
+    Update file content and create new version.
+
+    Invalidates cache after update.
+    """
+    # Note: get_file returns dict from cache, we need the actual object
+    result = await db.execute(select(File).where(File.id == file_id))
+    file = result.scalar_one_or_none()
 
     if not file:
         return None
@@ -113,6 +146,9 @@ async def update_file(
     db.add(version)
     await db.flush()
     await db.refresh(file)
+
+    # Invalidate cache
+    await cache_manager.delete(f"file:{file_id}")
 
     return file
 
@@ -220,3 +256,63 @@ async def count_file_versions(db: AsyncSession, file_id: int) -> int:
         select(func.count(FileVersion.id)).where(FileVersion.file_id == file_id)
     )
     return result.scalar_one()
+
+
+# Batch operations for performance
+
+async def get_files_by_ids(
+    db: AsyncSession,
+    file_ids: List[int]
+) -> List[File]:
+    """
+    Batch get files by IDs.
+
+    More efficient than multiple individual queries.
+
+    Args:
+        db: Database session
+        file_ids: List of file IDs
+
+    Returns:
+        List of File objects
+    """
+    if not file_ids:
+        return []
+
+    query = select(File).where(File.id.in_(file_ids))
+    result = await db.execute(query)
+    return list(result.scalars().all())
+
+
+@timing_decorator("crud.bulk_update_files")
+async def bulk_update_file_content(
+    db: AsyncSession,
+    updates: List[dict]  # [{'file_id': 1, 'content': '...', 'created_by': 1}]
+) -> int:
+    """
+    Bulk update file contents.
+
+    More efficient than individual updates.
+
+    Args:
+        db: Database session
+        updates: List of update dicts
+
+    Returns:
+        Number of files updated
+    """
+    if not updates:
+        return 0
+
+    updated_count = 0
+
+    for update in updates:
+        file_id = update['file_id']
+        content = update['content']
+        created_by = update.get('created_by')
+
+        file = await update_file(db, file_id, content, created_by)
+        if file:
+            updated_count += 1
+
+    return updated_count

@@ -27,6 +27,10 @@ class AgentRole(str, Enum):
     DEVELOPER = "developer"
     TEST_ENGINEER = "test_engineer"
     QUALITY_EXPERT = "quality_expert"
+    # New roles for enhanced capabilities
+    DEVOPS_ENGINEER = "devops_engineer"
+    SECURITY_EXPERT = "security_expert"
+    PERFORMANCE_ENGINEER = "performance_engineer"
 
 
 @dataclass
