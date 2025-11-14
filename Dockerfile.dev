@@ -1,0 +1,48 @@
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    git \
+    curl \
+    vim \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+COPY requirements-dev.txt* ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install development dependencies if available
+RUN if [ -f requirements-dev.txt ]; then \
+        pip install --no-cache-dir -r requirements-dev.txt; \
+    else \
+        pip install --no-cache-dir \
+            pytest \
+            pytest-asyncio \
+            pytest-cov \
+            pytest-mock \
+            black \
+            ruff \
+            mypy \
+            debugpy \
+            ipython \
+            ipdb; \
+    fi
+
+# Create workspace directory
+RUN mkdir -p /app/workspace
+
+# Set Python path
+ENV PYTHONPATH=/app/src
+
+# Default command (can be overridden in docker-compose)
+CMD ["uvicorn", "resoftai.api.main:asgi_app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

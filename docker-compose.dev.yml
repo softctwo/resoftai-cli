@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: resoftai-postgres-dev
+    environment:
+      POSTGRES_DB: resoftai_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./scripts/init-dev-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - resoftai-dev-network
+
+  # Backend API with Hot Reload
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: resoftai-backend-dev
+    environment:
+      # Database
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/resoftai_dev
+
+      # LLM Configuration
+      - LLM_PROVIDER=${LLM_PROVIDER:-deepseek}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-deepseek-chat}
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+
+      # API Configuration
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+
+      # Development Settings
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - RELOAD=true
+
+      # Python debugging
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    ports:
+      - "8000:8000"
+      - "5678:5678"  # debugpy port
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src:cached
+      - ./tests:/app/tests:cached
+      - ./workspace:/app/workspace:cached
+      - ./alembic:/app/alembic:cached
+      - ./alembic.ini:/app/alembic.ini:cached
+
+      # Prevent mounting of __pycache__
+      - /app/src/**/__pycache__
+    networks:
+      - resoftai-dev-network
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        python -c 'import time; time.sleep(5)' &&
+        echo 'Running database migrations...' &&
+        alembic upgrade head &&
+        echo 'Starting development server with hot reload...' &&
+        uvicorn resoftai.api.main:asgi_app
+          --host 0.0.0.0
+          --port 8000
+          --reload
+          --reload-dir /app/src
+          --log-level debug
+      "
+
+  # Redis for caching (optional but useful for development)
+  redis:
+    image: redis:7-alpine
+    container_name: resoftai-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - resoftai-dev-network
+    command: redis-server --appendonly yes
+
+  # Adminer for database management
+  adminer:
+    image: adminer:latest
+    container_name: resoftai-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres
+    depends_on:
+      - postgres
+    networks:
+      - resoftai-dev-network
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+
+networks:
+  resoftai-dev-network:
+    driver: bridge

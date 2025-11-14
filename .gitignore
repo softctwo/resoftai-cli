@@ -28,12 +28,15 @@ env/
 .venv
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
 *~
 .DS_Store
+
+# VSCode - keep shared config, ignore personal
+.vscode/*.code-workspace
+.vscode/settings.local.json
 
 # Testing
 .pytest_cache/

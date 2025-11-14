@@ -1,0 +1,124 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Tests",
+            "type": "shell",
+            "command": "PYTHONPATH=src pytest tests/ -v",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Tests with Coverage",
+            "type": "shell",
+            "command": "PYTHONPATH=src pytest tests/ --cov=src/resoftai --cov-report=html",
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Format Code",
+            "type": "shell",
+            "command": "black src/ tests/ && ruff check --fix src/ tests/",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Lint Code",
+            "type": "shell",
+            "command": "ruff check src/ tests/ && PYTHONPATH=src mypy src/resoftai --ignore-missing-imports",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Dev Server",
+            "type": "shell",
+            "command": "PYTHONPATH=src uvicorn resoftai.api.main:asgi_app --host 0.0.0.0 --port 8000 --reload",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^.*$",
+                    "file": 1,
+                    "location": 2,
+                    "message": 3
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "Started server process",
+                    "endsPattern": "Application startup complete"
+                }
+            }
+        },
+        {
+            "label": "Database Upgrade",
+            "type": "shell",
+            "command": "alembic upgrade head",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Database Rollback",
+            "type": "shell",
+            "command": "alembic downgrade -1",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: Start Dev Environment",
+            "type": "shell",
+            "command": "docker-compose -f docker-compose.dev.yml up -d",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: Stop Dev Environment",
+            "type": "shell",
+            "command": "docker-compose -f docker-compose.dev.yml down",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: View Logs",
+            "type": "shell",
+            "command": "docker-compose -f docker-compose.dev.yml logs -f",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
