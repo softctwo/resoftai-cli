@@ -58,7 +58,7 @@ app.include_router(files.router, prefix="/api")
 app.include_router(llm_configs.router, prefix="/api")
 app.include_router(execution.router, prefix="/api")
 app.include_router(templates.router, prefix="/api/v1")
-app.include_router(code_quality.router, prefix="/api")
+app.include_router(code_analysis.router, prefix="/api")
 
 # Enterprise Edition routers
 app.include_router(organizations.router, prefix="/api")
