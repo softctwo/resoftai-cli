@@ -54,12 +54,18 @@
         </div>
 
         <div class="editor-info">
-          <span>{{ currentFile?.path || '未选择文件' }}</span>
+          <span class="file-path">{{ currentFile?.path || '未选择文件' }}</span>
           <el-divider direction="vertical" />
-          <el-tag v-if="isInSession" type="success" size="small">
-            <el-icon><Connection /></el-icon>
-            协作模式
-          </el-tag>
+          <transition name="fade">
+            <div v-if="isInSession" class="collaboration-status">
+              <div class="status-indicator pulse"></div>
+              <el-icon class="status-icon"><Connection /></el-icon>
+              <span class="status-text">协作中</span>
+              <span v-if="otherUsers.length > 0" class="other-users-count">
+                +{{ otherUsers.length }}
+              </span>
+            </div>
+          </transition>
         </div>
       </div>
 
@@ -495,5 +501,88 @@ function goToLine(lineNumber) {
   color: #909399;
   font-size: 13px;
   padding: 8px;
+}
+
+/* Collaboration status */
+.collaboration-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
+  border: 1px solid #81c784;
+  border-radius: 16px;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  background: #4caf50;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
+}
+
+.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.status-icon {
+  font-size: 14px;
+  color: #4caf50;
+}
+
+.status-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #2e7d32;
+}
+
+.other-users-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1b5e20;
+  background: rgba(76, 175, 80, 0.2);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.file-path {
+  color: var(--el-text-color-regular);
+  font-size: 14px;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.3);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
 }
 </style>
