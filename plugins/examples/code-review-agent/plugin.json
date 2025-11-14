@@ -1,0 +1,16 @@
+{
+  "name": "Code Review Agent",
+  "slug": "code-review-agent",
+  "version": "1.0.0",
+  "description": "智能代码审查助手，自动检测代码问题并提供改进建议",
+  "author": "ResoftAI Team",
+  "category": "agent",
+  "tags": ["code-review", "quality", "ai-agent"],
+  "min_platform_version": "0.2.0",
+  "dependencies": [],
+  "license": "MIT",
+  "homepage": "https://github.com/resoftai/plugins/code-review-agent",
+  "documentation": "https://docs.resoftai.com/plugins/code-review-agent",
+  "repository": "https://github.com/resoftai/plugins/code-review-agent",
+  "entry_point": "main.py:CodeReviewAgent"
+}

@@ -1,0 +1,16 @@
+{
+  "name": "ESLint Integration",
+  "slug": "eslint-integration",
+  "version": "1.0.0",
+  "description": "ESLint代码质量检查集成插件，自动运行lint并修复问题",
+  "author": "ResoftAI Team",
+  "category": "code_quality",
+  "tags": ["eslint", "javascript", "typescript", "linting", "code-quality"],
+  "min_platform_version": "0.2.0",
+  "dependencies": [],
+  "license": "MIT",
+  "homepage": "https://github.com/resoftai/plugins/eslint-integration",
+  "documentation": "https://docs.resoftai.com/plugins/eslint-integration",
+  "repository": "https://github.com/resoftai/plugins/eslint-integration",
+  "entry_point": "main.py:ESLintIntegration"
+}

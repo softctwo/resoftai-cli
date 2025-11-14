@@ -474,3 +474,275 @@ async def list_reviews(
     )
 
     return reviews
+
+
+# =============================================================================
+# Plugin Update Endpoints
+# =============================================================================
+
+@router.get("/updates/check", response_model=Dict[str, Any])
+async def check_updates(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    检查已安装插件的可用更新
+
+    Returns available updates for all installed plugins.
+    """
+    from resoftai.crud.plugin_updates import check_plugin_updates
+
+    updates = await check_plugin_updates(
+        db=db,
+        user_id=current_user.id
+    )
+
+    return {
+        "total_updates": len(updates),
+        "updates": updates
+    }
+
+
+@router.get("/updates/statistics", response_model=Dict[str, Any])
+async def get_update_stats(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取更新统计信息
+    """
+    from resoftai.crud.plugin_updates import get_update_statistics
+
+    stats = await get_update_statistics(
+        db=db,
+        user_id=current_user.id
+    )
+
+    return stats
+
+
+@router.post("/{plugin_id}/update", status_code=status.HTTP_200_OK)
+async def update_plugin_to_latest(
+    plugin_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    更新插件到最新版本
+    """
+    from resoftai.crud import plugin as plugin_crud
+    from resoftai.crud.plugin_updates import update_plugin
+
+    # 获取安装记录
+    installation = await plugin_crud.get_installation(
+        db=db,
+        plugin_id=plugin_id,
+        user_id=current_user.id
+    )
+
+    if not installation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Plugin is not installed"
+        )
+
+    success = await update_plugin(db, installation.id)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update plugin"
+        )
+
+    return {"message": "Plugin updated successfully"}
+
+
+@router.post("/installations/{installation_id}/auto-update", status_code=status.HTTP_200_OK)
+async def toggle_auto_update(
+    installation_id: int,
+    auto_update: bool = Query(True, description="Enable or disable auto-update"),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    启用/禁用插件自动更新
+    """
+    from resoftai.crud.plugin_updates import enable_auto_update
+
+    success = await enable_auto_update(db, installation_id, auto_update)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Installation not found"
+        )
+
+    return {"message": f"Auto-update {'enabled' if auto_update else 'disabled'}"}
+
+
+# =============================================================================
+# Plugin Review Endpoints (Admin)
+# =============================================================================
+
+@router.get("/admin/pending-reviews", response_model=List[PluginResponse])
+async def list_pending_reviews(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取待审核插件列表 (管理员)
+
+    Requires admin privileges.
+    """
+    # 检查管理员权限
+    if not hasattr(current_user, 'role') or current_user.role != 'admin':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required"
+        )
+
+    from resoftai.crud.plugin_review import get_pending_reviews
+
+    plugins = await get_pending_reviews(db=db, skip=skip, limit=limit)
+
+    return plugins
+
+
+@router.post("/{plugin_id}/submit-review", status_code=status.HTTP_200_OK)
+async def submit_plugin_for_review(
+    plugin_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    提交插件供审核
+
+    Plugin author can submit their plugin for review.
+    """
+    plugin = await plugin_crud.get_plugin_by_id(db, plugin_id)
+
+    if not plugin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Plugin not found"
+        )
+
+    # 检查所有权
+    if plugin.author_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to submit this plugin"
+        )
+
+    from resoftai.crud.plugin_review import submit_for_review
+
+    success = await submit_for_review(db, plugin_id)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot submit plugin for review"
+        )
+
+    return {"message": "Plugin submitted for review"}
+
+
+@router.post("/admin/{plugin_id}/review", status_code=status.HTTP_200_OK)
+async def review_plugin(
+    plugin_id: int,
+    decision: str = Query(..., regex="^(approved|rejected|needs_changes)$"),
+    comments: Optional[str] = None,
+    required_changes: Optional[List[str]] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    审核插件 (管理员)
+
+    Requires admin privileges.
+    """
+    # 检查管理员权限
+    if not hasattr(current_user, 'role') or current_user.role != 'admin':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required"
+        )
+
+    from resoftai.crud import plugin_review
+
+    result = await plugin_review.review_plugin(
+        db=db,
+        plugin_id=plugin_id,
+        decision=decision,
+        reviewer_id=current_user.id,
+        comments=comments,
+        required_changes=required_changes
+    )
+
+    if not result["success"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("error", "Review failed")
+        )
+
+    return result
+
+
+@router.get("/{plugin_id}/automated-checks", response_model=Dict[str, Any])
+async def run_automated_checks(
+    plugin_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    运行自动化检查
+
+    Can be run by plugin author or admin.
+    """
+    plugin = await plugin_crud.get_plugin_by_id(db, plugin_id)
+
+    if not plugin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Plugin not found"
+        )
+
+    # 检查权限
+    if plugin.author_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to run checks on this plugin"
+        )
+
+    from resoftai.crud.plugin_review import run_automated_checks
+
+    result = await run_automated_checks(db, plugin_id)
+
+    return result
+
+
+@router.get("/admin/review-statistics", response_model=Dict[str, Any])
+async def get_review_stats(
+    days: int = Query(30, ge=1, le=365),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取审核统计 (管理员)
+
+    Requires admin privileges.
+    """
+    # 检查管理员权限
+    if not hasattr(current_user, 'role') or current_user.role != 'admin':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required"
+        )
+
+    from resoftai.crud.plugin_review import get_review_statistics
+
+    stats = await get_review_statistics(db=db, days=days)
+
+    return stats

@@ -1,0 +1,16 @@
+{
+  "name": "OpenAI Compatible Provider",
+  "slug": "openai-compatible-provider",
+  "version": "1.0.0",
+  "description": "支持任何OpenAI兼容API的LLM提供商插件",
+  "author": "ResoftAI Team",
+  "category": "llm_provider",
+  "tags": ["llm", "openai", "api", "provider"],
+  "min_platform_version": "0.2.0",
+  "dependencies": [],
+  "license": "MIT",
+  "homepage": "https://github.com/resoftai/plugins/openai-compatible-provider",
+  "documentation": "https://docs.resoftai.com/plugins/openai-compatible-provider",
+  "repository": "https://github.com/resoftai/plugins/openai-compatible-provider",
+  "entry_point": "main.py:OpenAICompatibleProvider"
+}
