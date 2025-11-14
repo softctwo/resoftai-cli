@@ -41,6 +41,36 @@
           <el-icon><Box /></el-icon>
           <span>模板市场</span>
         </el-menu-item>
+        <el-menu-item index="/plugins/marketplace">
+          <el-icon><Grid /></el-icon>
+          <span>插件市场</span>
+        </el-menu-item>
+        <el-menu-item index="/plugins/installed">
+          <el-icon><Box /></el-icon>
+          <span>已安装插件</span>
+        </el-menu-item>
+        <el-menu-item index="/performance">
+          <el-icon><TrendCharts /></el-icon>
+          <span>性能监控</span>
+        </el-menu-item>
+        <el-sub-menu index="/enterprise">
+          <template #title>
+            <el-icon><OfficeBuilding /></el-icon>
+            <span>企业管理</span>
+          </template>
+          <el-menu-item index="/organizations">
+            <el-icon><OfficeBuilding /></el-icon>
+            <span>组织管理</span>
+          </el-menu-item>
+          <el-menu-item index="/teams">
+            <el-icon><UserFilled /></el-icon>
+            <span>团队管理</span>
+          </el-menu-item>
+          <el-menu-item index="/quotas">
+            <el-icon><DataLine /></el-icon>
+            <span>配额监控</span>
+          </el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
 
