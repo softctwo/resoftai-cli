@@ -4,6 +4,23 @@
  */
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useWebSocket } from './useWebSocket'
+import { ElNotification } from 'element-plus'
+
+// User color palette (same as Monaco editor)
+const userColors = [
+  '#409EFF', // blue
+  '#67C23A', // green
+  '#E6A23C', // orange
+  '#F56C6C', // red
+  '#c71585', // purple
+  '#20b2aa', // teal
+  '#ff69b4', // pink
+  '#ffa500', // orange
+]
+
+function getUserColor(userId) {
+  return userColors[userId % userColors.length]
+}
 
 export function useCollaborativeEditing(fileId, projectId, userId, username) {
   const { socket, isConnected, on, emit, off } = useWebSocket()
@@ -17,7 +34,7 @@ export function useCollaborativeEditing(fileId, projectId, userId, username) {
   // Computed
   const onlineUserCount = computed(() => activeUsers.value.length)
   const otherUsers = computed(() =>
-    activeUsers.value.filter(user => user.user_id !== userId)
+    activeUsers.value.filter(user => user.user_id !== userId.value)
   )
 
   /**
@@ -97,8 +114,20 @@ export function useCollaborativeEditing(fileId, projectId, userId, username) {
    */
   const handleUserJoined = (data) => {
     console.log('User joined file:', data)
-    if (data.file_id === fileId) {
+    if (data.file_id === fileId.value && data.user_id !== userId.value) {
       activeUsers.value = data.active_users || []
+
+      // Show notification
+      const userColor = getUserColor(data.user_id)
+      ElNotification({
+        title: '用户加入',
+        message: `${data.username} 加入了协作编辑`,
+        type: 'success',
+        duration: 3000,
+        customClass: 'collaboration-notification',
+        icon: 'UserFilled',
+        offset: 80
+      })
     }
   }
 
@@ -107,12 +136,22 @@ export function useCollaborativeEditing(fileId, projectId, userId, username) {
    */
   const handleUserLeft = (data) => {
     console.log('User left file:', data)
-    if (data.file_id === fileId) {
+    if (data.file_id === fileId.value && data.user_id !== userId.value) {
       activeUsers.value = data.active_users || []
+
       // Remove cursor for the user who left
       if (remoteCursors.value[data.user_id]) {
         delete remoteCursors.value[data.user_id]
       }
+
+      // Show notification
+      ElNotification({
+        title: '用户离开',
+        message: `${data.username} 离开了协作编辑`,
+        type: 'warning',
+        duration: 3000,
+        offset: 80
+      })
     }
   }
 
@@ -122,7 +161,7 @@ export function useCollaborativeEditing(fileId, projectId, userId, username) {
    */
   const handleRemoteEdit = (data) => {
     console.log('Remote file edit:', data)
-    if (data.file_id === fileId && data.user_id !== userId) {
+    if (data.file_id === fileId.value && data.user_id !== userId.value) {
       fileVersion.value = data.version
       return data.changes
     }
@@ -133,7 +172,7 @@ export function useCollaborativeEditing(fileId, projectId, userId, username) {
    * Handle remote cursor position updates
    */
   const handleRemoteCursor = (data) => {
-    if (data.file_id === fileId && data.user_id !== userId) {
+    if (data.file_id === fileId.value && data.user_id !== userId.value) {
       remoteCursors.value[data.user_id] = {
         position: data.position,
         selection: data.selection,
